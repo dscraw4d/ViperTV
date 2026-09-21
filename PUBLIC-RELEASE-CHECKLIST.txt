@@ -1,0 +1,11 @@
+ViperTV public release checklist
+
+[ ] Choose and add your preferred software LICENSE before public open-source distribution.
+[ ] Keep data/ and backups/ empty in the release archive.
+[ ] Do not include a real Plex token, Jellyfin/Emby API key, TVDB key, or populated database.
+[ ] Do not replace .env.example with a machine-specific .env.
+[ ] Verify compose.yml contains no private NAS UUIDs or LAN addresses.
+[ ] Build once on a clean Docker host if possible.
+[ ] Test the M3U/XMLTV URLs from a second LAN device.
+[ ] Run Plex Sync All once to populate actor/director metadata.
+[ ] Generate a new SHA256SUMS.txt after changing release files.

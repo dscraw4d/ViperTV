@@ -1,0 +1,20 @@
+ViperTV 1.1.30 - Manual Live IPTV / M3U8
+=============================================
+
+1. Open ViperTV -> Media Sources -> Live IPTV.
+2. Enter a free channel number and a channel name.
+3. Paste a direct HTTP/HTTPS HLS/M3U8 stream URL.
+4. Optional: add a logo URL, group, User-Agent, or Referer required by the source.
+5. Click Add Live Channel.
+6. Use Test to verify that the source returns a valid #EXTM3U playlist.
+7. Use Watch to test it in ViperTV.
+8. Kodi continues to use the normal ViperTV playlist:
+   http://<VIPERTV-LAN-IP>:8409/iptv/channels.m3u
+
+Manual channels also appear in System -> Guide and in XMLTV as channel entries.
+No programme schedule is invented for a manual stream; the ViperTV guide labels it Live Stream.
+
+The HLS proxy signs child URLs and recursively handles child playlists, media
+segments, HLS key URIs and init-map URIs while applying your optional headers.
+ViperTV does not bypass source authentication or DRM. Only add streams you are
+authorized to access.

@@ -1,0 +1,15 @@
+ViperTV 1.1.46 - OpenMediaVault / Compose quick install
+
+1. Copy this package into an OMV Compose project directory.
+2. Edit .env for your timezone, Pluto region and optional VIPERTV_MEDIA_DIR.
+3. Keep ./data and ./backups persistent, or replace them in compose.yml with absolute NAS paths.
+4. Keep media mounts read-only (:ro).
+5. Build/Up the project in OMV Compose.
+6. Open http://<OMV-LAN-IP>:8409
+
+Existing installs:
+- Do not delete your current database/data directory when upgrading.
+- Back up the database and .env first.
+- Replace application files, then rebuild the image.
+
+See docs/OMV.md for more detail.

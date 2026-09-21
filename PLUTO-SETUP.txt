@@ -1,0 +1,41 @@
+ViperTV v1.1.33 — Pluto TV Setup
+=================================
+
+1. Upgrade ViperTV normally and start the container.
+2. Open ViperTV -> Media Sources -> Pluto TV.
+3. Canada (CA) is the default regional lineup for this build. Change the region only if appropriate for your Pluto TV availability.
+4. Leave the default ViperTV channel-number offset at 1000 unless you want Pluto channels somewhere else in your lineup.
+5. Click "Sync Pluto TV".
+6. Wait for the sync status to finish. ViperTV will cache the discovered channel lineup, logos/categories, and approximately 48 hours of guide data in /data/vipertv.db.
+7. Import individual channels with the checkboxes and "Import Selected", or use "Import All Available".
+8. Imported Pluto channels automatically appear in:
+   - Scheduling -> Channels (separate Pluto TV card)
+   - System -> Guide
+   - http://<VIPERTV-IP>:8409/iptv/channels.m3u
+   - http://<VIPERTV-IP>:8409/iptv/xmltv.xml
+9. Click Watch beside an imported Pluto channel for the built-in browser player. Kodi/IPTV clients use the same stable ViperTV M3U and do not need a second playlist.
+
+Automatic refresh
+-----------------
+The Pluto lineup and guide refresh every 24 hours by default. Change the interval on Media Sources -> Pluto TV. Playback session tokens are acquired/refreshed separately when a live stream starts.
+
+Channel numbering
+-----------------
+ViperTV adds the configured number offset to Pluto's channel number and automatically moves upward if that number is already used by another ViperTV/Pluto channel. Once assigned, imported Pluto numbers remain stable unless they collide with a normal ViperTV channel.
+
+Diagnostics
+-----------
+Sync status:    /api/pluto/status
+Active streams: /api/pluto/streams
+
+Persistence
+-----------
+Pluto discovery/import/guide state is stored in the normal /data/vipertv.db database and is included in ViperTV's normal backup system. Do not delete ViperTV-Data when upgrading.
+
+Notes
+-----
+Pluto TV is an external live service. Channel availability and schedules can change, and playback depends on Pluto TV being reachable from the ViperTV server. ViperTV does not download or re-host Pluto programming; it acts as a live gateway for channels you import.
+
+
+v1.1.33 Kodi note:
+Pluto entries in the generated M3U use .m3u8 ViperTV HLS URLs. ViperTV now recursively proxies child playlists, segments, keys and init maps so Kodi never has to leave ViperTV for Pluto/CDN child requests. If Kodi cached an older .ts Pluto URL, refresh/clear PVR data once; the legacy .ts route remains compatible and returns the same proxied HLS master.

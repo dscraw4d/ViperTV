@@ -1,0 +1,16 @@
+VIPERTV 1.1.18 - THETVDB SETUP
+
+1. Sign in to TheTVDB.
+2. Open your Dashboard -> API Keys and create/use a v4 API key appropriate for your project/access model.
+3. If your key uses the user-supported model, also obtain your personal subscriber PIN.
+4. In ViperTV open System -> Metadata Providers.
+5. Enter the API key and optional PIN and click Save & Test TheTVDB.
+6. Click Enrich New / Stale Shows.
+7. Watch progress on the same page. ViperTV prefers Plex's tvdb:// provider ID when Plex exposes it; otherwise it uses conservative exact title/year matching.
+8. Open Scheduling -> Channel Builder. The original-network and premiere-year filters now use Manual override -> TheTVDB -> Plex/local fallback priority.
+
+Normal enrichment refreshes only new shows or cached metadata older than 30 days.
+A Force Refresh All button is available if you need to rebuild the metadata cache.
+After the automatic 72-hour Plex sync, ViperTV automatically runs an incremental TVDB enrichment if TheTVDB is configured.
+
+Metadata provided by TheTVDB: https://thetvdb.com

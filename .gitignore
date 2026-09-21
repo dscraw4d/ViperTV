@@ -1,0 +1,31 @@
+# ViperTV runtime/private files
+.env
+data/*
+!data/.gitkeep
+backups/*
+!backups/.gitkeep
+media/*
+!media/README.txt
+
+# Databases, logs, caches and generated files
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# IDE / OS clutter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local release/build artifacts
+*.tar
+*.tar.gz
+*.zip
+*.sha256

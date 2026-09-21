@@ -1,0 +1,10 @@
+# Optional Linux-only Intel VAAPI acceleration overlay.
+# Start with:
+#   docker compose -f compose.yml -f compose.intel-vaapi.yml up -d --build
+services:
+  vipertv:
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      LIBVA_DRIVER_NAME: ${LIBVA_DRIVER_NAME:-i965}
+      VIPERTV_DEFAULT_STREAM_PROFILE: vaapi

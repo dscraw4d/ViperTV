@@ -1,0 +1,35 @@
+ViperTV Retro TV — v1.1.38
+
+Open Scheduling -> Retro TV.
+
+MUSIC VIDEO FILLER
+ViperTV automatically uses all playable media from local and Plex libraries whose name contains "Music Videos". There is no filler-library selector anymore.
+
+OPTION A: FIND ONLINE
+1. Choose a historical date.
+2. Enter the network/station label (for example NBC).
+3. Choose a ViperTV channel number/name and schedule timezone.
+4. Click Find Listing & Build Channel.
+
+AUTOMATIC SOURCE ORDER
+1. TVTango direct HTML — best source when available because it can include reruns and the original grid.
+2. Jina Reader default Markdown — unauthenticated fallback for the same public TVTango page. ViperTV parses the network row and episode/title lines itself.
+3. TVmaze public daily schedule API — no API key required. This is the last automatic fallback because TVmaze primarily tracks premiere airings rather than a complete rerun-inclusive TV Guide.
+
+If Reader Markdown loses an HTML colspan, ViperTV uses matching TVmaze premiere metadata when available to restore the historical start time/runtime (for example an hour-long 10:00 PM drama).
+
+OPTION B: MANUAL / SCANNED GUIDE TRANSCRIPTION
+Paste one programme per line:
+  18:00|News
+  18:30|Frasier|The Matchmaker
+  19:00|Friends|The One With...
+The next line's time becomes the hard end of the previous slot.
+
+SHORT PROGRAMMES / COMMERCIAL BREAKS
+If a 22-minute episode occupies a 30-minute historical slot, ViperTV plays Music Videos for the remaining ~8 minutes. If a Music Video reaches the next hard schedule boundary, it is cut so the next historical show starts exactly on time.
+
+MISSING PROGRAMMES
+Missing titles stay in Wanted Programs, but viewers receive Music Videos for the entire unavailable slot rather than a Coming Soon slate. The EPG still displays the original historical show title. Add the missing programme to Plex/local media, sync, then click Recheck Library so the real show can play next time.
+
+NO MUSIC VIDEOS AVAILABLE
+If no Music Videos library is indexed, ViperTV falls back to a safety slate until Music Videos become available.
