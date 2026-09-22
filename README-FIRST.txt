@@ -1,49 +1,53 @@
-VIPERTV v1.1.46 — DRAG & DROP UPDATE (NO SSH)
+VIPERTV v1.2.8 — INSTALL / UPDATE NOTES
 Created by Darren "The Viper" Crawford
 
-This package contains ONLY program/documentation files. It does not contain or replace your database, media, backups, Plex token, .env, or storage paths.
+This update contains program/documentation files only. It does NOT contain or replace your database, media, backups, Plex token, .env, private paths, or API keys.
 
-WHAT v1.1.46 ADDS
-- Reusable Classic Schedules modeled after the workflow of ErsatzTV Classic Schedules.
-- A Schedule is now separate from a Channel. Build it once, then assign it to one or more channels from Scheduling -> Playouts.
-- Per-channel Playout assignments with independent reset/generation state.
-- Schedule-level options:
-  * Keep multi-part episodes together
-  * Treat Collections as Shows
-  * Shuffle Schedule Items
-  * Random Start Point
-- Schedule Item source types:
-  * Manual Collection
-  * Smart Collection
-  * Multi Collection
-  * Playlist
-  * Entire TV Show
-  * Individual TV Season
-- Start types: Dynamic or Fixed clock time.
-- Fixed start behavior: Flexible or Strict.
-- Playback orders: Chronological, Season/Episode, Shuffle, Random and Shuffle In Order.
-- Playout modes: One, Multiple, Duration and Flood.
-- Multiple modes: Count, Collection Size, Multi-Episode Group Size and Playlist Item Size.
-- Fill With Group: None, Ordered Groups or Shuffled Groups.
-- Duration tail behavior: advance immediately, Offline/black, or use a filler Collection.
-- Discard-to-fill attempts for Duration items.
-- Custom EPG title and Guide Mode (Normal/Filler).
-- Schedule item editing, moving up/down and deletion.
-- Schedule cloning and deletion.
-- Guide/XMLTV integration for Classic Schedule output.
-- Automatic black/silent schedule gaps for fixed starts and offline tails.
-- Existing pre-v1.1.46 time-block schedules are NOT deleted. They remain under Channel Studio as Legacy Time Blocks and are used whenever no Classic Playout is assigned.
+WHAT v1.2.x ADDS
+- Block Scheduling with reusable fixed-duration Blocks.
+- Day-of-week Block Templates and per-channel Block Playouts.
+- Reusable Decos for watermark policy, Block filler, dead-air fallback and graphics.
+- Full commercial/filler roles: Pre-roll, Mid-roll, Post-roll, Tail and Fallback.
+- Filler modes: Count, Duration and Pad, with exact-boundary trimming.
+- Mid-roll commercial breaks with configurable break count and chapter-aware placement when chapter metadata is available.
+- Graphics & Branding with image station bugs and dynamic text overlays.
+- Channel graphics scopes: All, Primary only and Filler only.
+- Graphics on Classic items, Block items/Decos, and Sequential schedules.
+- Sequential YAML Scheduling with content sources, sequences, resets and playout instructions.
+- Content sources include searches, Collections, Smart/Multi Collections, Playlists, shows, images and reusable Marathons.
+- Saved Marathons can group by show/season/artist/album, shuffle groups, and play one/all items per group.
+- Advanced Filler sources are reusable across Classic, Block and Sequential schedules, including saved Marathons.
+- Fallback filler can loop/trim exactly to a hard schedule boundary.
+- Blocks and Block Templates can be cloned.
+- Sequential instructions include count/all/duration/padding/waits/sequences, graphics controls and watermark controls.
+- Classic Schedule items now have a Commercials / Filler & Graphics editor.
+- Classic, Block and Sequential assignments are mutually exclusive per channel.
+- Guide/XMLTV support for grouped split programmes such as mid-roll breaks.
+- Smart Global Search with mixed-media Playlists and deep technical metadata.
+- Persistent SQLite/FTS5 Search Index so repeated searches do not rebuild the whole catalog.
+- Search progress, index status, and a manual Rebuild Search Index control.
 
 HOW TO INSTALL
-1. Stop ViperTV in your OpenMediaVault / Docker web interface.
-2. Open this ZIP and drag its CONTENTS over your existing ViperTV program folder. Allow matching files to be replaced.
-3. Build/Rebuild the ViperTV project in your Docker/Compose web interface. A restart alone is not enough because app/main.py is copied into the image at build time.
-4. Start ViperTV. The sidebar and /healthz should say v1.1.46.
-5. Open Scheduling -> Schedules and create your first Classic Schedule.
-6. Add Schedule Items, then open Scheduling -> Playouts and assign the Schedule to a channel.
-7. Open Guide to preview the result.
+1. Stop ViperTV in OpenMediaVault / Docker / Compose.
+2. Back up your ViperTV data folder/database as normal.
+3. Drag the CONTENTS of this update ZIP over the existing ViperTV program folder and allow matching files to be replaced.
+4. Rebuild the ViperTV Docker/Compose project. A simple container restart is not enough because the application and the new PyYAML dependency are installed at image build time.
+5. Start ViperTV.
+6. Confirm the sidebar and /healthz show v1.2.8.
+7. Open Scheduling -> Marathons, Blocks / Templates, Sequential, Lists -> Filler, and System -> Graphics & Branding.
 
 NO DATABASE RESET IS REQUIRED.
-Your channels, Collections, Smart Collections, Multi Collections, Playlists, people metadata, Plex settings, old schedules and media stay intact.
+The v1.2.x schema migrations are additive and preserve existing channels, Classic Schedules, Collections, Playlists, Plex/Jellyfin/Emby setup, People metadata, Pluto, Retro TV, backups and media indexes.
 
-See docs/SCHEDULING.md for a beginner-friendly scheduling walkthrough.
+The proven shared-channel producer, Plex direct-Part source handling, Pluto recursive HLS proxy and Retro TV engines are preserved.
+
+See docs/SCHEDULER-COMPLETION.md, docs/ADVANCED-SCHEDULING.md and docs/SCHEDULING.md.
+
+NEW IN v1.2.8
+--------------
+- Scheduling -> Deco Templates
+- Scheduling -> Playout Templates
+- Scheduling -> Scripted
+- Authenticated external scheduler API under /api/v1/scripted/*
+- FastAPI interactive API documentation under /docs
+

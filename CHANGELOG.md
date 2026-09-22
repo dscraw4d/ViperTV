@@ -1,3 +1,180 @@
+# ViperTV Changelog
+
+## 1.5.0 — Administration, Diagnostics & Setup
+- Added seven-step first-run Setup Wizard.
+- Added System Health dashboard and source connectivity probes.
+- Added live stream diagnostics with sanitized FFmpeg command capture and station-producer restart.
+- Added background Media Integrity scanner and cross-source duplicate detection.
+- Added Metadata Repair Queue with local/Plex/Jellyfin/Emby retry actions.
+- Added safe configuration export/import with automatic pre-import snapshot.
+- Added named database snapshots with download/restore.
+- Added Admin/Editor/Viewer local accounts plus OIDC default-role mapping.
+- Added SYSOP audit log for management mutations and logins.
+- Added recovery-safe Update Manager staging/validation and optional explicit writable source-root overlay.
+- Added About/System Info page.
+- Preserved v1.4.0 security/JWT/remote-stream/Trakt/script-runner behavior and v1.3.0 direct-path/FFmpeg-profile behavior.
+
+# 1.4.0 — Media, Security & Automation Completion
+
+- Added folder-level image duration inheritance with nearest-folder matching.
+- Added general Remote Stream definitions for FFmpeg-readable URLs/files and trusted executable stdout.
+- Added Trakt List mirroring to managed Playlists or Collections with automatic refresh.
+- Added optional local administrator and OIDC management authentication.
+- Added signed JWT IPTV access and a streaming-only port gate.
+- Added executable scheduler Script Runner and bundled Python API client.
+- Added Scripted graphics on/off events and Graphics Test Bench.
+- Added relative-date search operators for released/added dates.
+- Retains v1.3.0 Jellyfin/Emby direct paths and reusable FFmpeg Profiles.
+- Additive migration; no Compose/database replacement.
+
+# 1.3.0 — Direct Media Paths + FFmpeg Profiles
+
+- Added Jellyfin stream-from-disk/path replacement rules with existing-file validation and automatic HTTP fallback.
+- Added Emby stream-from-disk/path replacement rules with the same safe fallback behavior.
+- Added cached direct-path coverage fields to external media without replacing existing library rows.
+- Added named reusable FFmpeg Profiles with global and per-channel assignment.
+- FFmpeg Profiles support hardware path, H.264/HEVC/copy video, AAC/AC-3/copy audio, resolution, video/audio bitrate, frame rate, preset, pixel format, sample rate, channel count, max-rate and buffer size.
+- Preserved the v1.2.5 hardware availability/software fallback system and v1.2.9 stream-selector/graphics pipeline.
+- Video copy automatically falls back to encoding when active filters make stream-copy invalid.
+- Additive database migration only; no Compose/database replacement.
+
+# 1.2.9
+
+- Added prioritized Advanced Audio/Subtitle Stream Selector profiles.
+- Added stream matching by language/title/codec/channels/forced/default/SDH/external/channel/time.
+- Added Graphics Engine 2.0 subtitle graphics and looping motion/video overlays with richer templating and z-index layering.
+- Added Plex stream-from-disk path replacement rules with automatic Plex HTTP fallback.
+- Additive migration only; no Compose/database replacement.
+
+# 1.2.8 — Scheduler Automation
+
+- Added reusable **Deco Templates** with timed day-part entries and weekday masks.
+- Added prioritized **Playout Templates** that pair Block Templates and Deco Templates.
+- Playout Template rules can target recurring weekdays or exact dates; exact-date matches are considered before recurring rules and priority resolves competing matches.
+- Added per-channel Playout Template assignments.
+- Block playback resolves the active Deco Template dynamically as programming advances through the day; an explicit Deco on a Block Template slot still takes precedence.
+- Added first-class **Scripted Schedules** and channel assignments.
+- Added authenticated `/api/v1/scripted/*` REST endpoints, automatically included in FastAPI `/docs` and `/openapi.json`.
+- External programs can search the ViperTV catalog, create schedules, atomically replace schedule items, assign schedules to channels, and reset playout state.
+- Scripted schedule items support Smart Search queries, exact indexed-media UIDs, normal ViperTV source kinds, recurring weekday masks, exact dates, count/fill-window modes, EPG visibility and custom EPG titles.
+- Scripted Scheduling API tokens are generated locally and stored only in the persistent settings database; update ZIPs never contain the token.
+- Added database triggers that keep Classic, Block, Sequential, Playout Template and Scripted assignments mutually exclusive.
+- Migration remains additive; existing v1.2.7 schedules/data are preserved.
+- Recovery-safe update packaging continues to exclude Compose, `.env`, database, backups and media.
+
+# ViperTV Change Log
+
+## v1.2.7 — Scheduler Completion
+
+- Added reusable **Marathons** under Scheduling → Marathons.
+- Marathons can combine multiple Smart Search queries, group by show/season/artist/album, use chronological or shuffled item order, shuffle group order, and either rotate one item per group or play each group completely before advancing.
+- Marathons are first-class sources for **Classic Schedules**, **Block Scheduling**, and **Sequential YAML**.
+- Sequential YAML can reference saved marathons with `marathon: "Name"` and saved filler presets with `filler_preset: "Name"`.
+- Unified Advanced Filler source selection so presets may use Collections, Smart/Multi Collections, Playlists, Shows, Seasons, Images, Marathons or entire local libraries.
+- Preserved Pre-roll, Mid-roll, Post-roll, Tail and Fallback roles plus Count/Duration/Pad modes across Classic/Block/Sequential scheduling.
+- Added chapter-aware mid-roll placement when source chapter timestamps are available; Auto falls back to even spacing when chapter metadata is absent.
+- Added `chapters_json` metadata for Local/Plex/Jellyfin/Emby items so chapter-aware filler can use actual chapter start points after metadata refresh.
+- Fallback filler now selects one deterministic item, loops it, and trims the final loop to exactly fill the remaining gap.
+- Added reusable filler playback-order control and configurable minimum primary-program duration before mid-roll insertion.
+- Added **Clone Block** and **Clone Template** actions for faster Block schedule construction.
+- Existing Classic Schedule, Block, Sequential, graphics, streaming, hardware acceleration and persistent search data migrate in place.
+- Recovery-safe update packages continue to exclude Compose files, `.env`, databases, backups and media paths.
+
+## v1.2.6 — Scheduled Images + Multiple Streaming Modes
+
+- Added **Media → Images** as a first-class manager for indexed local JPG/JPEG, PNG, WebP, BMP and GIF media.
+- Added a configurable global default image duration plus per-image duration overrides; changing duration updates ViperTV metadata only.
+- Local images can be selected directly as Classic Schedule and Block Schedule sources, used in mixed-media Playlists/Collections, and referenced by Sequential YAML with `image: "Title"`.
+- Scheduled images are rendered as normal timed H.264/AAC television segments with aspect-ratio-preserving scale/pad and silent audio.
+- Added four per-channel delivery modes: **MPEG-TS Sanitized**, **MPEG-TS Legacy**, **HLS Segmenter**, and **HLS Direct**.
+- M3U output automatically publishes `.ts` or `.m3u8` according to each generated channel's selected delivery mode.
+- HLS Segmenter uses compatibility-oriented ~4-second segments; HLS Direct uses low-latency ~1-second segments. Both are stream-copy/remux downstream from the existing shared station producer.
+- MPEG-TS Sanitized retains the per-viewer clean remux path; MPEG-TS Legacy attaches directly to the shared station feed for minimum overhead.
+- Preserved the one-expensive-source-producer-per-active-channel architecture across every delivery mode.
+- Existing channel modes and databases migrate in place. Recovery-safe packages do not include Compose files, `.env`, databases, backups or media paths.
+- Added `docs/IMAGES-AND-STREAMING.md`.
+
+## v1.2.5 — Hardware Acceleration Management
+
+- Replaced the Intel-only hardware page with a unified Intel / AMD / NVIDIA hardware acceleration dashboard.
+- Detects visible `/dev/dri/renderD*` devices, PCI vendor IDs, NVIDIA device nodes and FFmpeg H.264 hardware encoders.
+- Added Global Default profiles: Auto Detect, Software, VAAPI, Intel QSV, NVIDIA NVENC and Direct/Copy.
+- Added per-channel `Use Global Default`, Auto, Software, VAAPI, QSV, NVENC and Direct/Copy overrides.
+- New channels follow the central Global Default instead of embedding a hardware choice at creation time.
+- Added one-click encoder validation tests with the most recent FFmpeg result shown in the Hardware Acceleration page.
+- Added `/api/hardware/status` for diagnostics.
+- Added preferred VAAPI/QSV render-device selection for multi-GPU systems.
+- Added automatic software fallback when a hardware encoder fails prerequisites or exits during initialization. A failed encoder retries the same programme instead of advancing playout state.
+- Active shared streams show configured/effective profile and hardware-fallback counts.
+- ViperTV's mixed-media image/song playback and v1.2 Block/Sequential command wrappers now accept the central hardware profile system.
+- Graphics/branding remains deliberately software-filtered for maximum cross-host reliability; the Hardware page reports the effective profile used by the active station.
+- Docker image keeps legacy Intel i965 support and attempts to install newer Intel media and Mesa VAAPI drivers when available. NVIDIA still requires the host's NVIDIA Container Toolkit/runtime.
+- Existing databases migrate in place; there is no destructive schema migration.
+- Recovery-safe update packages do not include Compose files, `.env`, databases, backups or media paths.
+
+## v1.2.4 — Persistent Indexed Search
+
+- Added a persistent SQLite search index so normal searches no longer rebuild the merged Local/Plex/Jellyfin/Emby/People catalog on every request.
+- Uses SQLite FTS5 when available, with weighted title/show/person columns and technical/metadata aliases for Smart Global Search.
+- The first index build happens once in the background; subsequent container restarts reuse the existing index.
+- Local scans, Plex syncs, Jellyfin/Emby syncs, TheTVDB enrichment, rich Plex credit refreshes and local metadata enrichment mark the index dirty and schedule a background refresh.
+- Searches continue using the last committed index while a refresh is being built, so a library sync does not make Search unavailable.
+- Added Search → Indexed Search status and a manual Rebuild Search Index button.
+- Preserved v1.2.3 search progress; the progress page now reports a one-time index build when required and then queries the persistent index.
+- Smart Collections continue using the same simple/advanced query language, but read from indexed payloads after the index is ready.
+- Added a safe fallback to the v1.2.3 catalog-search path if FTS/index access fails.
+- Existing `vipertv.db` data is migrated in place. No Compose or storage-path changes are required.
+
+
+## v1.2.3 — Search Progress
+
+- Search requests now start as background jobs instead of holding the page open with only the browser tab spinner.
+- Added an in-page progress meter with current stage, percentage, items checked/total and matches found.
+- Progress is based on the actual searchable catalog size once catalog preparation completes.
+- Search results redirect automatically when ranking is complete.
+- Search jobs expire automatically to avoid retaining old result sets indefinitely.
+- No database schema change and no Compose changes.
+
+
+## v1.2.2 — Smart Global Search
+
+- Plain search no longer requires field names: typing a person, show/movie title, year, decade, genre, network, artist, library or technical media term searches the appropriate metadata automatically.
+- Person names such as `John Ritter` search actors, directors and writers; show names such as `M*A*S*H` are punctuation-insensitive and match the series title.
+- Bare years and decades such as `1984`, `1980s` and `80s` match media air/release years.
+- Natural combinations use AND-style narrowing, so searches such as `1980s comedy`, `Star Trek 1990s`, `4K HDR`, `Spanish subtitles` and `h265 10bit` work without special syntax.
+- Added user-friendly aliases for common resolutions, HDR/SDR, codecs, bit depth, languages and media types.
+- Plain results are relevance-ranked so exact title/person matches appear before incidental metadata/plot matches.
+- Advanced `field:value`, AND/OR/NOT and parentheses remain fully supported for precise searches and Smart Collections.
+- Search UI now leads with simple examples and moves field syntax into optional Advanced Search Help.
+- No database schema change and no rescan is required for the search-engine upgrade itself.
+
+## v1.2.1 — Powerful Playlists + Deep Search
+
+- Expanded Playlists to support mixed granular sources: shows, seasons, exact episodes/items, artists, Collections, movies, music videos, other videos, songs, images and configured remote live streams.
+- Added per-playlist-entry **Play All** behavior and **Show in EPG** visibility.
+- Media Search can add selected results directly to an existing/new Playlist.
+- Added grouped `type:season` and `type:artist` search results for playlist programming.
+- Added deep searchable metadata: writer, content rating, audio/subtitle languages, tags, added date, chapters, duration, resolution, video/audio codec, bit depth, HDR/dynamic range, artist and album.
+- Local scans now index audio and image media with stable IDs; audio is presented over a TV-safe black video canvas and images receive a default 10-second duration when scheduled.
+- Plex and Jellyfin/Emby metadata enrichment populates the new search fields where the source exposes them.
+- Existing v1.2.0 databases migrate in place; no data wipe is required.
+- Update package intentionally excludes Compose files, `.env`, databases, backups and media paths.
+
+
+## Advanced scheduling, commercials and station branding
+- Added **Block Scheduling** with reusable fixed-duration Blocks, day Templates, per-channel Block Playouts and reusable Decos.
+- Added hard Block boundaries so commercials/filler are trimmed rather than delaying the next fixed Block.
+- Expanded Filler into **Pre-roll, Mid-roll, Post-roll, Tail and Fallback** presets with Count, Duration and Pad modes plus exact-boundary trimming and configurable mid-roll break counts.
+- Added Classic Schedule Item UI for attaching the new commercial/filler presets and graphics without replacing the existing Classic engine.
+- Added **Graphics & Branding** with reusable image overlays and dynamic text overlays, channel scopes (all/primary/filler), Block/Deco attachment, and Sequential graphics controls.
+- Added **Sequential YAML Scheduling** with reusable content sources, sequences, reset instructions, looping playout instructions, wall-clock padding/waits, marathon content, graphics toggles and watermark control.
+- Classic, Block and Sequential playout assignments are mutually exclusive per channel to avoid ambiguous schedules.
+- Guide/XMLTV handling now honors grouped guide duration for split programmes such as mid-roll commercial breaks.
+- Added additive v1.2 schema tables/columns; existing `vipertv.db` is preserved and migrated in place.
+- Added `PyYAML` runtime dependency and `docs/ADVANCED-SCHEDULING.md`.
+- Preserved the v1.1.46 shared producer, direct Plex Part path, slow-viewer behavior, Pluto recursive proxy and Retro TV engines.
+- Plex universal-transcoder fallback now preserves v1.2 split-segment offsets and advanced branding when the direct Part path is unavailable.
+
 # ViperTV v1.1.46
 
 ## ErsatzTV-style Classic Schedules and Playouts

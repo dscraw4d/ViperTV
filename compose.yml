@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: vipertv:1.1.46
+    image: vipertv:1.5.0
     restart: unless-stopped
     env_file:
       - .env

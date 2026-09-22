@@ -1,6 +1,6 @@
 # ViperTV security notes
 
-ViperTV 1.1.46 does **not** provide a built-in administrator login for the web UI.
+ViperTV 1.2.0 does **not** provide a built-in administrator login for the web UI.
 Treat the web interface as a trusted-LAN service.
 
 - Do not port-forward TCP 8409 directly to the public Internet.

@@ -1,3 +1,19 @@
+# v1.2.0 — Advanced Scheduling & Branding
+
+## 1.5.0 — Administration, Diagnostics & Setup
+- First-run Setup Wizard.
+- System Health, Stream Diagnostics, Media Integrity, Duplicate Detector and Metadata Repair Queue.
+- Configuration import/export and named database snapshots.
+- Admin/Editor/Viewer roles and audit logging.
+- Recovery-safe Update Manager and About/System Info.
+
+
+- Block Scheduling with Templates, Decos and per-channel Block Playouts.
+- Pre/Mid/Post/Tail/Fallback commercial and filler presets with Count/Duration/Pad modes.
+- Image and dynamic-text Graphics & Branding.
+- Sequential YAML Scheduling with reusable content, sequences, reset and playout instructions.
+- Classic-item commercial/graphics attachment and additive database migration.
+
 # ViperTV 1.1.33
 
 ## v1.1.39 — search-first Collections
@@ -256,3 +272,42 @@ System → Guide now uses a standard TV-grid layout with channels fixed on the l
 Retro TV now uses a three-stage automatic lookup: direct TVTango HTML, unauthenticated Jina Reader Markdown for the same public TVTango page, then TVmaze's public no-key daily schedule API. This avoids the `401 Unauthorized` triggered by Reader HTML/raw mode on some deployments. The Reader parser understands TVTango network/logo rows, episode-title lines and wrapped Markdown table cells. TVmaze is deliberately the last automatic fallback because its schedule data represents premiere airings rather than rerun-inclusive TV Guide listings. Manual schedule paste remains available for exact scanned/newspaper schedules.
 
 When Reader Markdown loses an HTML `colspan`, ViperTV opportunistically uses matching TVmaze premiere metadata to restore the historical airtime/runtime (for example, a 10:00–11:00 one-hour drama) without replacing TVTango's rerun rows.
+
+## v1.2.4
+- Persistent SQLite/FTS5 Smart Search index.
+- Background/debounced index refresh after library and metadata changes.
+- Search index status and manual rebuild UI.
+- v1.2.3 catalog-search fallback retained.
+
+## v1.2.6
+
+- First-class scheduled local images with configurable display duration.
+- Direct image sources for Classic/Block scheduling and Sequential `image:` support.
+- Per-channel MPEG-TS Sanitized, MPEG-TS Legacy, HLS Segmenter and HLS Direct delivery modes.
+- M3U URLs automatically follow channel delivery mode while all generated modes preserve the shared station producer.
+
+
+
+## v1.2.7 — Scheduler Completion
+
+- Added first-class reusable **Marathons**.
+- Marathon grouping by Show, Season, Artist or Album.
+- Chronological/shuffled item ordering, optional shuffled groups, and play-all vs round-robin group behavior.
+- Marathons are selectable by Classic Schedules and Blocks and referenceable from Sequential YAML.
+- Unified Advanced Filler sources across Classic, Block and Sequential schedules.
+- Filler sources now include libraries, Manual/Smart/Multi Collections, Playlists, shows, seasons, images and saved Marathons.
+- Added chapter metadata (`chapters_json`) for local/Plex/Jellyfin/Emby media where available.
+- Added chapter-aware Mid-roll placement with automatic even-spacing fallback.
+- Added exact loop-and-trim Fallback behavior for hard schedule gaps/dead air.
+- Sequential YAML can reference saved filler presets with `filler_preset:`.
+- Added Clone actions for Blocks and Block Templates.
+- Database migration remains additive; no reset is required.
+- Recovery-safe update packaging continues to exclude Compose, `.env`, database, backups and media.
+
+
+## v1.2.8 — Scheduler Automation
+
+- Added timed reusable Deco Templates.
+- Added prioritized weekday/exact-date Playout Templates combining Block + Deco Templates.
+- Added authenticated Scripted Scheduling REST/OpenAPI endpoints and first-class Scripted playouts.
+- Added atomic external schedule replacement and scheduler-assignment exclusivity.

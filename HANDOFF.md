@@ -1,4 +1,63 @@
-# ViperTV developer handoff — v1.1.46
+# ViperTV v1.5.0 continuation note
+
+Current baseline: **v1.5.0**. Administration/diagnostics is now a separate `app/administration_suite.py` layer installed after v1.4.0. Preserve the shared streaming core and recovery-safe packaging rule. New areas: Setup Wizard, System Health, Stream Diagnostics, Media Integrity, Duplicates, Metadata Repair, config import/export, named snapshots, users/roles, audit log, Update Manager and About/System Info.
+
+# ViperTV developer handoff — v1.4.0
+
+## v1.4.0 Media, Security & Automation Completion
+- New additive module: `app/media_security_completion.py`, installed after v1.3.0.
+- New bundled dependency-free script client: `app/vipertv_script_client.py`.
+- Management auth and IPTV JWT are opt-in after upgrade, preventing accidental lockout.
+- Script execution is restricted to `/data/scheduler-scripts`; executable Remote Streams default to `/data/remote-scripts`.
+- Streaming-only port enforcement is application-level; OMV/reverse proxy must still map an external port to container 8409.
+- Trakt refresh uses the user's configured Trakt Client ID and does not bundle credentials.
+- Preserve v1.3.0 direct-path and FFmpeg-profile behavior and all earlier scheduler/graphics/search layers.
+- Recovery-safe updates must never include Compose YAML, `.env`, DB, backups, tokens, private media, or private NAS paths.
+- See `docs/MEDIA-SECURITY-AUTOMATION.md` and `RELEASE-NOTES-v1.4.0.md`.
+
+
+## v1.3.0 Direct Media Paths + FFmpeg Profiles
+- New additive module: `app/direct_media_ffmpeg_profiles.py`, installed last after v1.2.9.
+- Adds per-server Jellyfin/Emby `external_path_replacements`; existing `external_media.path` remains the metadata-server path and new direct-path columns are only ViperTV cache/status fields.
+- Playback uses a translated path only when it exists inside the ViperTV container. Otherwise the proven Jellyfin/Emby HTTP stream remains the fallback.
+- Adds `ffmpeg_profiles` and `channel_ffmpeg_profiles`; global default is stored in normal `settings` as `ffmpeg_default_profile_id`.
+- Named FFmpeg Profiles wrap the current v1.2.9 local/Plex/external command bindings rather than replacing the shared producer or scheduling engine.
+- Preserve Hardware Acceleration fallback, Advanced Stream Selector, Graphics Engine 2.0, Plex direct paths, scheduled image/song generators, and MPEG-TS/HLS delivery modes.
+- Recovery-safe updates must never contain Compose YAML, `.env`, DB, backups, credentials, media, or private NAS paths.
+- See `docs/DIRECT-PATHS-FFMPEG-PROFILES.md` and `RELEASE-NOTES-v1.3.0.md`.
+
+## v1.2.9 Streams + Graphics + Direct Media Paths
+- New additive module: `app/stream_graphics_paths.py`, installed last after v1.2.8.
+- Adds Stream Selector tables, channel assignments, and System → Audio / Subtitles UI.
+- Adds Plex path-replacement table and `/plex/path-replacements`; no Docker mounts are changed.
+- Extends `graphics_elements` additively with motion-loop and subtitle-style data; existing graphics remain valid.
+- Replaces only stream command bindings at runtime; shared-producer, scheduling, HLS/MPEG-TS delivery, hardware fallback and v1.2.8 scheduler automation remain in place.
+- Plex direct-path mode uses the translated local file only when it exists; otherwise current Plex Media Part HTTP behavior is retained.
+- Recovery-safe package must never contain Compose YAML, `.env`, DB, backup or media directories.
+- See `docs/STREAMS-GRAPHICS-PLEX-PATHS.md` and `RELEASE-NOTES-v1.2.9.md`.
+
+
+## v1.2.7 Scheduler Completion / Marathons / unified Advanced Filler
+- New additive module: `app/scheduler_completion.py`, installed after the v1.2.6 layers. It completes the scheduler stack without replacing the proven shared streaming core.
+- **Reusable Marathons** are persisted in the new `marathons` table and can combine one or more Smart Search queries, group by show/season/artist/album, shuffle groups, choose chronological/shuffled item order, and either play every item in a group or round-robin one item per group.
+- Marathons are first-class sources for **Classic Schedule items**, **Block items**, and **Sequential YAML** (`marathon: "Name"`).
+- Advanced Filler is unified across Classic/Block/Sequential. Filler presets can source Local Libraries, Manual/Smart/Multi Collections, Playlists, whole Shows, Seasons, Images, or saved Marathons.
+- Filler roles remain **Pre-roll, Mid-roll, Post-roll, Tail, Fallback** with Count/Duration/Pad behavior.
+- Local/Plex/Jellyfin/Emby media now have additive `chapters_json` metadata. Mid-roll strategy `auto` uses chapter boundaries when available and falls back to even spacing; `chapters` and `even` can be selected explicitly.
+- Fallback filler can loop one deterministic fallback item and trim the final loop to exactly fill a hard schedule gap, avoiding dead air without pushing the next fixed item late.
+- Sequential YAML can reference a saved filler preset directly with `filler_preset: "Preset Name"`.
+- Blocks and Block Templates have **Clone** actions for faster reusable schedule construction.
+- Schema changes are additive. Existing schedules, playlists, channels, and data remain in place.
+- Preserve shared producer/Plex direct-Part/Pluto/Retro logic. Do not fold scheduler work into a streaming-core rewrite.
+- See `docs/SCHEDULER-COMPLETION.md`, `docs/ADVANCED-SCHEDULING.md`, and `docs/SCHEDULING.md`.
+
+## v1.2.0 Advanced Scheduling / Commercials / Graphics foundation
+- `app/advanced_scheduling.py` provides Blocks/Templates/Decos, Classic item extras, Graphics & Branding, and Sequential YAML.
+- Block, Classic and Sequential assignments are mutually exclusive per channel.
+- Block scheduling enforces hard fixed boundaries and clips the final primary/filler item when required.
+- Graphics supports reusable image and dynamic-text overlays. Filtered items use software H.264 for reliable FFmpeg filter behavior; unaffected items keep their normal profile.
+- Sequential uses PyYAML and supports named content, sequences, reset instructions and playout instructions.
+
 
 ## v1.1.39 ErsatzTV-style Collections / saved-search Smart Collections
 - New **Media → Search** route: `/media/search`. Search results can be selected and posted to `/media/search/add-to-collection`; a new manual Collection can be created in the same POST.
@@ -231,3 +290,43 @@ Jina Reader fallback now requests HTML and parses the original TVTango table str
 - `_retro_fetch_tvmaze()` requires no API key and filters by network/date/country, using primetime rows and clock-slot runtimes. It is a last resort because TVmaze does not provide rerun-inclusive TV Guide listings.
 - Reader results are optionally enriched with matching TVmaze premiere rows to restore historical airtime and one-hour/multi-slot durations when Markdown conversion loses HTML colspan.
 - Tested failure chain: TVTango 403 + Reader 401 -> TVmaze success for mocked 1994-09-22 NBC, producing 20:00 Mad About You, 20:30 Friends, 21:00 Seinfeld, 21:30 Madman of the People, 22:00-23:00 ER.
+
+
+## v1.2.1 continuation note
+
+Added mixed-media Playlists with per-entry Play All/EPG flags and deep metadata search. The implementation lives in `app/media_power.py` and is installed after `advanced_scheduling.py` so the v1.2 scheduling/streaming core remains underneath it.
+
+## v1.2.2 continuation note
+
+Smart Global Search is implemented in `app/media_power.py`. Plain text queries search across titles/show titles, actors/directors/writers, years/decades, networks, genres/tags, artists/albums, ratings, libraries/source names, languages and technical metadata. Punctuation-insensitive matching means `MASH` can match `M*A*S*H`. Multiword plain queries narrow naturally, and plain-search results are relevance ranked. The existing `field:value` boolean parser is still used for advanced queries and Smart Collections. No schema migration was added for v1.2.2.
+
+## v1.2.3 continuation note
+
+Search now runs through background jobs implemented in `app/media_power.py`. `/media/search?q=...` immediately renders a progress page, `POST /api/media/search/start` launches the worker, `/api/media/search/status/{job_id}` reports real progress, and `/media/search/results?job=...` renders cached results when complete. Progress becomes determinate after the searchable catalog is assembled and then tracks actual items checked. Search jobs are in-memory, bounded, and expire automatically. There is no v1.2.3 database schema change.
+## v1.2.4 continuation note
+
+Search is now backed by persistent tables `search_index_items`, `search_index_state` and (when SQLite FTS5 is available) `search_index_fts`, implemented in `app/media_power.py`. The first build merges the expensive media/People/TVDB catalog once and stores safe search payloads plus normalized aliases. Normal Smart Global Search uses FTS5 candidate lookup and relevance ranking; advanced boolean/field searches evaluate against the already-materialized payloads rather than rebuilding the catalog. Index state survives container restarts. Local/Plex/Jellyfin/Emby scans and metadata/People enrichment mark the index dirty and queue a debounced background rebuild. The old committed generation remains searchable while a refresh is built. `/api/media/search/index-status` exposes state, and Search has a manual Rebuild Search Index action. If indexed search fails, requests fall back to the v1.2.3 catalog path. Do not remove the fallback until indexed search has been proven across large real libraries.
+
+## v1.2.5 continuation note
+
+Hardware acceleration management is implemented primarily in `app/hardware_accel.py` with integration hooks in `app/main.py`, `app/advanced_scheduling.py`, and `app/media_power.py`. System → Hardware Acceleration detects Intel/AMD DRM render devices and NVIDIA device visibility, reports FFmpeg encoder readiness, supports Global/Auto defaults and per-channel overrides, provides encoder self-tests, and exposes `/api/hardware/status`. New generated channels store `stream_profile=global`; existing explicit profiles remain intact. Runtime profile resolution can safely fall back to software when prerequisites are missing. The hardened shared producer also catches early hardware-encoder failures and retries the same programme with software encoding without advancing the schedule cursor. Do not remove the software fallback when changing the streaming core. Advanced graphics intentionally use software filtering for cross-host reliability. Recovery-safe update ZIPs must continue excluding Compose files and user data.
+
+## v1.2.6 continuation note
+
+Scheduled-image and generated-channel delivery-mode support is implemented in `app/scheduled_media_stream_modes.py`, installed after the v1.2.4/1.2.5 media-search and hardware layers. **Media → Images** manages local image timing; local image selections are added to the existing Classic/Block source catalog rather than creating a parallel scheduler. Sequential understands `image: "Title"`. The local mixed-media FFmpeg path converts images into timed A/V MPEG-TS segments and respects effective hardware profiles.
+
+Generated channel `stream_mode` now has four supported values: `mpegts` (per-viewer sanitizer), `mpegts_legacy` (direct shared feed), `hls` (compatibility HLS, ~4-second target segments), and `hls_direct` (low-latency HLS, ~1-second target segments). M3U publication chooses `.ts` or `.m3u8` accordingly. Both HLS modes subscribe to `/internal/stream/channel/<number>.ts` and use `-c copy`; they must never create another expensive source transcode. Preserve the established one-shared-producer-per-channel model, slow-viewer protection, hardware software-fallback logic, Pluto recursive proxy and Retro TV paths. Recovery-safe update ZIPs must continue excluding Compose files and user data.
+
+## v1.2.7 continuation note
+
+Scheduler completion is implemented in `app/scheduler_completion.py`, installed after the v1.2.6 layer. The module deliberately extends existing Classic/Block/Sequential functions instead of creating a parallel scheduler. It adds the persistent `marathons` table; reusable Marathons are injected into the existing Classic source catalog so Classic items and Block items can select them directly, while Sequential can reference a saved Marathon by name.
+
+Advanced Filler now uses generic `source_kind`/`source_ref` fields and can source libraries, Manual/Smart/Multi Collections, Playlists, shows, seasons, images, or saved Marathons. `chapters_json` is additive on local/Plex/external media; local ffprobe, Plex Chapter offsets, and Jellyfin/Emby chapter positions populate it when available. Mid-roll `auto` uses chapter boundaries when sensible and otherwise falls back to even spacing. Fallback filler loops one deterministic item and trims the final loop to exactly fill a requested hard gap. Sequential supports saved `filler_preset:` sources. Blocks and Block Templates can be cloned.
+
+Do not remove the v1.2.0 `advanced_scheduling.py` layer: v1.2.7 wraps and completes it. Recovery-safe updates must continue to exclude `compose.yml`, `vipertv.yml`, `.env`, databases, backups and media paths.
+
+
+
+## v1.2.8 continuation note
+
+`app/scheduler_automation.py` installs last and wraps the v1.2.7 scheduling stack. It adds additive SQLite tables for Deco Templates, Playout Templates, Scripted Schedules and channel assignments. Keep it after `scheduler_completion.py` in `main.py`. Scheduler-exclusivity triggers intentionally remove competing assignments when a channel is assigned through another scheduling engine. The Scripted Scheduling bearer/API token lives only in the persistent `settings` table. Recovery-safe update ZIPs must continue to exclude Compose YAML, `.env`, databases, backups and media.

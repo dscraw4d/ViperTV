@@ -1,4 +1,4 @@
-# ViperTV Classic Scheduling — v1.1.46
+# ViperTV Classic Scheduling — introduced in v1.1.46 (current release v1.2.0)
 
 ViperTV v1.1.46 adds reusable **Classic Schedules** and **Playouts**. The workflow is deliberately similar to ErsatzTV's Classic Schedule model: a Schedule describes the programming rules, while a Playout assigns that Schedule to a channel.
 
@@ -216,7 +216,7 @@ ViperTV fills the slot with complete content and uses filler for the remainder.
 
 ## 13. Compatibility
 
-The v1.1.46 database migration is additive. It does not remove or reset:
+The Classic Scheduling migration is additive, and the current v1.2.0 advanced-scheduling migration is also additive. It does not remove or reset:
 
 - channels
 - media libraries
@@ -228,6 +228,6 @@ The v1.1.46 database migration is additive. It does not remove or reset:
 
 Classic Playouts simply take precedence while assigned.
 
-## 14. Scope
+## 14. Scope in v1.2.0
 
-v1.1.46 implements the **Classic Schedule / Playout** workflow. ErsatzTV also has newer Block, Sequential/YAML and Scripted scheduling systems; those are separate scheduling models and are not represented as identical engines in this ViperTV release.
+Classic Schedule / Playout remains fully supported. ViperTV v1.2.0 additionally implements its own **Block Scheduling**, advanced **Commercial/Filler**, **Graphics & Branding**, and **Sequential YAML Scheduling** layers. See `ADVANCED-SCHEDULING.md` for those systems. Legacy Time Blocks remain available for older configurations.

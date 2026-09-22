@@ -1,4 +1,4 @@
-ViperTV 1.1.46 - OpenMediaVault / Compose quick install
+ViperTV 1.2.0 - OpenMediaVault / Compose quick install
 
 1. Copy this package into an OMV Compose project directory.
 2. Edit .env for your timezone, Pluto region and optional VIPERTV_MEDIA_DIR.

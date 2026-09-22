@@ -6,6 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg ca-certificates tzdata fonts-dejavu-core i965-va-driver vainfo libva2 libva-drm2 \
+    && (apt-get install -y --no-install-recommends intel-media-va-driver || true) \
+    && (apt-get install -y --no-install-recommends mesa-va-drivers || true) \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
