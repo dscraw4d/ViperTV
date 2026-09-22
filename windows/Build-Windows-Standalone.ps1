@@ -29,7 +29,18 @@ Copy-Item (Join-Path $Root "ViperTV-Open.cmd") $Stage
 Copy-Item (Join-Path $Root "ViperTV-Logs.cmd") $Stage
 Copy-Item (Join-Path $Root "VERSION") $Stage
 Copy-Item (Join-Path $Root "LICENSE-NOTICE.txt") $Stage -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $Root "README-WINDOWS-STANDALONE.md") $Stage
+
+# The GitHub source tree uses README.md as its landing page. Older standalone
+# packages also shipped README-WINDOWS-STANDALONE.md. Accept either layout so
+# the release builder cannot fail simply because the README was renamed.
+$StandaloneReadme = Join-Path $Root "README-WINDOWS-STANDALONE.md"
+if (-not (Test-Path $StandaloneReadme)) {
+  $StandaloneReadme = Join-Path $Root "README.md"
+}
+if (-not (Test-Path $StandaloneReadme)) {
+  throw "Neither README-WINDOWS-STANDALONE.md nor README.md exists in the repository root."
+}
+Copy-Item $StandaloneReadme (Join-Path $Stage "README-WINDOWS-STANDALONE.md")
 Copy-Item (Join-Path $Root "THIRD-PARTY-NOTICES-WINDOWS.md") $Stage
 New-Item -ItemType Directory -Force -Path (Join-Path $Stage "UserData") | Out-Null
 Set-Content -Path (Join-Path $Stage "portable.mode") -Value "portable" -Encoding ascii
@@ -96,7 +107,13 @@ $LauncherExe = Join-Path $Stage "ViperTV.exe"
 & $Csc /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll "/out:$LauncherExe" $LauncherSource
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $LauncherExe)) { throw "ViperTV.exe launcher build failed" }
 
-# Sanity checks using the exact embedded runtime.
+# Sanity checks using the exact embedded runtime. Point the application at the
+# portable staging data folder so importing app.main cannot accidentally create
+# a database at the root of the GitHub runner drive.
+$env:VIPERTV_WINDOWS_STANDALONE = "1"
+$env:VIPERTV_DATA_DIR = Join-Path $Stage "UserData\data"
+$env:VIPERTV_SECONDARY_BACKUP_DIR = Join-Path $Stage "UserData\backups-secondary"
+New-Item -ItemType Directory -Force -Path $env:VIPERTV_DATA_DIR,$env:VIPERTV_SECONDARY_BACKUP_DIR | Out-Null
 Write-Host "Running standalone import smoke test..."
 & (Join-Path $Runtime "python.exe") -c "import sys; sys.path.insert(0,r'$Stage'); import fastapi,uvicorn,yaml,bs4; import app.main; print(app.main.APP_VERSION)"
 if ($LASTEXITCODE -ne 0) { throw "Embedded Python smoke test failed" }

@@ -1,0 +1,12 @@
+ViperTV v1.5.0 Windows Standalone - GitHub Build Fix
+
+Fixes the GitHub Actions failure:
+  Cannot find path README-WINDOWS-STANDALONE.md
+
+Apply by copying the contents of this folder into the root of the Windows
+Standalone GitHub repository and allowing it to replace the existing
+windows/Build-Windows-Standalone.ps1 file. Commit/push, then rerun the
+Build Windows Standalone workflow.
+
+The builder now also falls back to README.md if the standalone README is
+renamed or absent, and its smoke test uses the portable staging data folder.
