@@ -1,31 +1,15 @@
-# ViperTV runtime/private files
-.env
-data/*
-!data/.gitkeep
-backups/*
-!backups/.gitkeep
-media/*
-!media/README.txt
-
-# Databases, logs, caches and generated files
+# ViperTV Windows Standalone generated/runtime files
+dist-windows/
+runtime/
+UserData/
+portable.mode
+installed.mode
 *.db
 *.db-*
 *.sqlite
 *.sqlite3
 *.log
+*.pid
+*.pyc
 __pycache__/
-*.py[cod]
-.pytest_cache/
-
-# IDE / OS clutter
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Local release/build artifacts
-*.tar
-*.tar.gz
-*.zip
-*.sha256
+.env

@@ -349,7 +349,7 @@ def _integrity_worker(jid:int):
             with _db() as c:c.execute('INSERT INTO media_integrity_issues(scan_id,source_type,source_id,issue_type,severity,title,path,details,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(jid,source,sid,itype,severity,title,path,details,_now()));c.commit()
         for r in local:
             p=Path(str(r['path'] or ''));checked+=1
-            if not p.exists(): issue('local',r['id'],'missing_file','error',r['title'],str(p),'File is indexed but not visible inside the container.')
+            if not p.exists(): issue('local',r['id'],'missing_file','error',r['title'],str(p),'File is indexed but is not accessible to ViperTV.')
             else:
                 try:
                     if p.stat().st_size==0:issue('local',r['id'],'zero_byte','error',r['title'],str(p),'File size is zero bytes.')
@@ -529,7 +529,7 @@ def _writable_source_root() -> Path|None:
 
 def _overlay_update(pkg: Path) -> tuple[int,Path]:
     root=_writable_source_root()
-    if not root:raise RuntimeError('No writable VIPERTV_SOURCE_ROOT is configured. Stage the update here, then use OMV Build → Up.')
+    if not root:raise RuntimeError('No writable VIPERTV_SOURCE_ROOT is configured.')
     _snapshot('before-update-overlay','Automatic database snapshot before update overlay')
     rbroot=Path(G['DATA_DIR'])/'update-rollback';rbroot.mkdir(parents=True,exist_ok=True);rb=rbroot/f"rollback-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip";count=0
     with zipfile.ZipFile(pkg) as z, zipfile.ZipFile(rb,'w',zipfile.ZIP_DEFLATED) as rz:
@@ -565,8 +565,8 @@ def install_v150(app, main_globals: dict[str,Any]) -> None:
             channels=int(conn.execute('SELECT COUNT(*) n FROM channels').fetchone()['n']) if _table_exists(conn,'channels') else 0
             sources=(int(conn.execute('SELECT COUNT(*) n FROM plex_servers').fetchone()['n']) if _table_exists(conn,'plex_servers') else 0)+(int(conn.execute('SELECT COUNT(*) n FROM media_servers').fetchone()['n']) if _table_exists(conn,'media_servers') else 0)
         nav=''.join(f"<a class='button {'secondary' if i!=step else ''}' href='/setup?step={i}'>{i}</a> " for i in range(1,8))
-        if step==1:content="<h2>Welcome</h2><p>This wizard verifies the pieces needed for a working ViperTV installation without rewriting your Docker/OMV configuration.</p><a class='button' href='/setup?step=2'>Begin</a>"
-        elif step==2:content=f"<h2>Timezone</h2><form method='post' action='/setup/timezone'><label>ViperTV scheduling timezone</label><input name='timezone_name' value='{_e(_setting('setup_timezone',str(G.get('DEFAULT_TIMEZONE') or 'UTC')))}'><button>Save & Continue</button></form><p class='muted small'>For the container clock itself, keep TZ in your OMV Compose environment. This setting controls ViperTV scheduling defaults.</p>"
+        if step==1:content="<h2>Welcome</h2><p>This wizard verifies the pieces needed for a working ViperTV Windows Standalone installation.</p><a class='button' href='/setup?step=2'>Begin</a>"
+        elif step==2:content=f"<h2>Timezone</h2><form method='post' action='/setup/timezone'><label>ViperTV scheduling timezone</label><input name='timezone_name' value='{_e(_setting('setup_timezone',str(G.get('DEFAULT_TIMEZONE') or 'UTC')))}'><button>Save & Continue</button></form><p class='muted small'>Windows Standalone includes timezone data and uses this setting for ViperTV scheduling.</p>"
         elif step==3:content=f"<h2>Storage</h2><p><b>Database:</b> <code>{_e(G['DB_PATH'])}</code><br><b>Primary backups:</b> <code>{_e(G['BACKUP_DIR'])}</code><br><b>Secondary backups:</b> <code>{_e(G['SECONDARY_BACKUP_DIR'])}</code></p><p>{libs} local librar{'y' if libs==1 else 'ies'} configured.</p><a class='button secondary' href='/media/local'>Manage Local Sources</a> <a class='button' href='/setup?step=4'>Continue</a>"
         elif step==4:content=f"<h2>Media Servers</h2><p>{sources} Plex/Jellyfin/Emby server connection(s) configured.</p><a class='button secondary' href='/plex'>Plex</a> <a class='button secondary' href='/sources'>Jellyfin / Emby</a> <a class='button' href='/setup?step=5'>Continue</a>"
         elif step==5:content="<h2>Hardware Acceleration</h2><p>Detect and test the encoder ViperTV should use for generated channels.</p><a class='button secondary' href='/system/hardware'>Open Hardware Acceleration</a> <a class='button' href='/setup?step=6'>Continue</a>"
@@ -775,7 +775,7 @@ def install_v150(app, main_globals: dict[str,Any]) -> None:
     def update_page(msg:str=''):
         with _db() as conn:rows=conn.execute('SELECT * FROM update_packages ORDER BY id DESC').fetchall()
         root=_writable_source_root();trs=''.join(f"<tr><td>{_e(r['version'] or '?')}</td><td>{_e(r['filename'])}</td><td><code>{_e(r['sha256'])}</code></td><td>{_e(r['status'])}</td><td><form class='inline' method='post' action='/system/update/{r['id']}/apply'><button {'disabled' if not root else ''}>Overlay Source</button></form></td></tr>" for r in rows) or "<tr><td colspan='5'>No update packages staged.</td></tr>"
-        mode=(f"Writable source root: <code>{_e(root)}</code>. Overlay can be automated; OMV still needs Build → Up." if root else "This Docker image is immutable and no VIPERTV_SOURCE_ROOT mount is configured. ViperTV can safely check/download/validate/stage updates and snapshot the database; apply them to /appdata/vipertv on the host, then use OMV Build → Up.")
+        mode=(f"Writable application root: <code>{_e(root)}</code>. Windows Standalone can overlay a validated update in place; restart ViperTV afterward." if os.environ.get('VIPERTV_WINDOWS_STANDALONE')=='1' and root else (f"Writable source root: <code>{_e(root)}</code>. Overlay can be automated; rebuild/restart your deployment afterward." if root else "No writable application source root is configured. ViperTV can still check, validate and stage updates and snapshot the database."))
         try:avail=json.loads(_setting('update_available_json','{}') or '{}')
         except Exception:avail={}
         body=(f"<div class='msg'>{_e(msg)}</div>" if msg else '')+_heading('Update Manager','Check, validate and stage recovery-safe releases with automatic pre-update snapshots and rollback files.')+f"""
@@ -806,7 +806,7 @@ def install_v150(app, main_globals: dict[str,Any]) -> None:
         try:
             count,rb=_overlay_update(Path(r['file_path']))
             with _db() as conn:conn.execute("UPDATE update_packages SET status='overlaid',notes=? WHERE id=?",(f'{count} files; rollback {rb}',pid));conn.commit()
-            msg=f'Overlaid {count} source files. Rollback archive: {rb.name}. Use OMV Build → Up.'
+            msg=(f'Overlaid {count} application files. Rollback archive: {rb.name}. Restart ViperTV to activate the update.' if os.environ.get('VIPERTV_WINDOWS_STANDALONE')=='1' else f'Overlaid {count} source files. Rollback archive: {rb.name}. Rebuild/restart the deployment to activate it.')
         except Exception as exc:msg='Apply unavailable: '+str(exc)
         return RedirectResponse('/system/update?msg='+urllib.parse.quote(msg),303)
 

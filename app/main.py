@@ -134,12 +134,12 @@ def set_setting(key: str, value: str) -> None:
         conn.commit()
 
 
-HARDWARE_STREAM_PROFILES = {"global", "auto", "software", "vaapi", "qsv", "nvenc", "direct"}
+HARDWARE_STREAM_PROFILES = {"global", "auto", "software", "vaapi", "qsv", "nvenc", "amf", "direct"}
 
 
 def hardware_global_profile() -> str:
     value = str(get_setting("hardware_default_profile", os.getenv("VIPERTV_DEFAULT_STREAM_PROFILE", "auto")) or "auto").strip().lower()
-    return value if value in {"auto", "software", "vaapi", "qsv", "nvenc", "direct"} else "auto"
+    return value if value in {"auto", "software", "vaapi", "qsv", "nvenc", "amf", "direct"} else "auto"
 
 
 def hardware_preferred_vaapi_device() -> str:
@@ -172,7 +172,7 @@ def effective_stream_profile(channel: Any, profile_override: str | None = None) 
     if requested == "auto":
         requested = hwaccel.recommended_profile(preferred)
     warning = ""
-    if requested in {"vaapi", "qsv", "nvenc"}:
+    if requested in {"vaapi", "qsv", "nvenc", "amf"}:
         prereq = hwaccel.profile_prerequisites(requested, preferred)
         if not prereq.get("available") and hardware_fallback_enabled():
             warning = f"{hwaccel.profile_label(requested)} unavailable: {prereq.get('reason')}; using software."
@@ -2634,7 +2634,7 @@ def home_page(request: Request, message: str = "") -> str:
 <div class='card'><div class='page-heading'><div><h2>Channels</h2><p>Active ViperTV channels and current playable media counts.</p></div><a class='button' href='/channels'>Manage Channels</a></div><div class='table-wrap'><table><thead><tr><th>#</th><th>Name</th><th>Status</th><th>Playable Items</th><th>Actions</th></tr></thead><tbody>{channel_rows}</tbody></table></div></div>
 <div class='grid'>
  <div class='card urls'><h2>Client URLs</h2><p class='muted'>Use these in Kodi, Plex, Jellyfin, TiviMate or another IPTV client.</p><label>M3U Playlist</label><code>{e(url)}/iptv/channels.m3u</code><label>XMLTV Guide</label><code>{e(url)}/iptv/xmltv.xml</code></div>
- <div class='card'><h2>Quick Actions</h2><div class='toolbar'><a class='button secondary' href='/plex'>Plex Sources</a><a class='button secondary' href='/media/local'>Local Libraries</a><a class='button secondary' href='/guide'>Guide Preview</a><a class='button secondary' href='/maintenance'>Backup & Restore</a></div><hr><p class='muted small'>ViperTV data is persisted outside the container and backed up to both configured backup locations.</p></div>
+ <div class='card'><h2>Quick Actions</h2><div class='toolbar'><a class='button secondary' href='/plex'>Plex Sources</a><a class='button secondary' href='/media/local'>Local Libraries</a><a class='button secondary' href='/guide'>Guide Preview</a><a class='button secondary' href='/maintenance'>Backup & Restore</a></div><hr><p class='muted small'>ViperTV data is stored separately from the application and backed up to both configured backup locations.</p></div>
 </div>
 """
     count_script = r"""<script>(async()=>{for(const el of document.querySelectorAll('.playable-count')){try{const r=await fetch('/api/channels/'+el.dataset.channel+'/playable-count');const j=await r.json();el.textContent=(j.count??0).toLocaleString();}catch(e){el.textContent='?';}}})();</script>"""
@@ -3149,7 +3149,7 @@ def local_libraries_page(msg: str = "") -> str:
         f"<form class='inline' method='post' action='/libraries/{x['id']}/delete' onsubmit='return confirm(&quot;Remove this library from ViperTV? Media files will not be deleted.&quot;);'><button class='danger'>Delete</button></form></td></tr>" for x in libs
     ) or "<tr><td colspan='5' class='empty'>No local libraries have been added.</td></tr>"
     notice=f"<div class='msg'>{e(msg)}</div>" if msg else ''
-    body=notice+_page_heading('Local Media Sources','Add folders from your OMV host and scan them into ViperTV.')+f"""
+    body=notice+_page_heading('Local Media Sources','Add Windows folders, mapped drives, UNC shares, or other folders visible to ViperTV and scan them into the library.')+f"""
 <div class='grid'><div class='card'><h2>Add Local Library</h2><form method='post' action='/libraries/add'><label>Name</label><input name='name' required placeholder='TV Shows'><label>Container Path</label><input name='path' required placeholder='/mnt/share2'><button>Add Library</button></form></div>
 <div class='card'><h2>Scanning</h2><p>Local scanning reads file durations and show/season information. For very large Plex-managed libraries, use the Plex source instead.</p><form method='post' action='/libraries/scan-all'><button class='secondary'>Scan All Local Libraries</button></form></div></div>
 <div class='card'><h2>Libraries</h2><div class='table-wrap'><table><thead><tr><th>Name</th><th>Category</th><th>Path</th><th>Items</th><th>Actions</th></tr></thead><tbody>{rows}</tbody></table></div></div>"""
@@ -8616,7 +8616,7 @@ def _retro_slate_command(channel:sqlite3.Row,title:str,seconds:float)->list[str]
     # simple so it is reliable even on the older Ivy Bridge server.
     safe=re.sub(r"[:'\\]",lambda m:'\\'+m.group(0),str(title))[:70]
     text=f"COMING SOON\\nPROGRAM UNAVAILABLE\\n{safe}"
-    return ['ffmpeg','-hide_banner','-loglevel','error','-re','-f','lavfi','-i','color=c=#252525:s=1280x720:r=30','-f','lavfi','-i','anullsrc=r=48000:cl=stereo','-vf',f"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='{text}':fontcolor=white:fontsize=40:line_spacing=16:x=(w-text_w)/2:y=(h-text_h)/2",'-map','0:v:0','-map','1:a:0','-c:v','libx264','-preset','veryfast','-tune','zerolatency','-pix_fmt','yuv420p','-c:a','aac','-b:a',AUDIO_BITRATE,'-t',f'{max(0.1,seconds):.3f}','-mpegts_flags','+resend_headers+initial_discontinuity','-f','mpegts','pipe:1']
+    return ['ffmpeg','-hide_banner','-loglevel','error','-re','-f','lavfi','-i','color=c=#252525:s=1280x720:r=30','-f','lavfi','-i','anullsrc=r=48000:cl=stereo','-vf',f"drawtext=font='{('Arial' if os.name=='nt' else 'DejaVu Sans')}':text='{text}':fontcolor=white:fontsize=40:line_spacing=16:x=(w-text_w)/2:y=(h-text_h)/2",'-map','0:v:0','-map','1:a:0','-c:v','libx264','-preset','veryfast','-tune','zerolatency','-pix_fmt','yuv420p','-c:a','aac','-b:a',AUDIO_BITRATE,'-t',f'{max(0.1,seconds):.3f}','-mpegts_flags','+resend_headers+initial_discontinuity','-f','mpegts','pipe:1']
 
 
 async def _retro_run_cmd_to_subscribers(channel_id:int,state:dict[str,Any],cmd:list[str],label:str)->float:
@@ -10113,7 +10113,7 @@ def studio_channel(channel_id:int,msg:str=''):
         linked={r['collection_id'] for r in conn.execute('SELECT collection_id FROM channel_collections WHERE channel_id=?',(channel_id,))}; cf=conn.execute('SELECT filler_id FROM channel_fillers WHERE channel_id=?',(channel_id,)).fetchone(); templates=conn.execute('SELECT * FROM schedule_templates ORDER BY name').fetchall(); extlibs=conn.execute('SELECT el.*,ms.name server_name,ms.kind FROM external_libraries el JOIN media_servers ms ON ms.id=el.server_id WHERE el.enabled=1 ORDER BY ms.name,el.name').fetchall(); ctemplates=conn.execute('SELECT * FROM channel_templates ORDER BY name').fetchall()
     if not c:raise HTTPException(404)
     rows=''.join(f"<tr><td>{e(i['label'] or '')}</td><td>{_min_to_hm(i['start_minute'])}-{_min_to_hm(i['end_minute'])}</td><td>{e(i['source_type'])} {e(i['source_id'])}</td><td><form method='post' action='/studio/schedule/item/{i['id']}/delete'><button class='danger'>Delete</button></form></td></tr>" for i in items) or "<tr><td colspan=4 class='muted'>No schedule items. Channel uses its normal selections 24/7.</td></tr>"
-    body=(f"<div class='msg'>{e(msg)}</div>" if msg else '')+f"<div class='card'><h2>{e(c['number'])} {e(c['name'])}</h2><form method='post' action='/studio/channel/{channel_id}/settings'><div class='grid'><div><label>Logo path</label><input name='logo_path' value='{e(c['logo_path'])}' placeholder='/data/logos/channel.png'><label><input type='checkbox' name='watermark_enabled' value='1' {'checked' if c['watermark_enabled'] else ''}> Watermark/logo bug</label><label>Subtitle mode</label><select name='subtitle_mode'><option {'selected' if c['subtitle_mode']=='none' else ''}>none</option><option {'selected' if c['subtitle_mode']=='burn' else ''}>burn</option><option {'selected' if c['subtitle_mode']=='copy' else ''}>copy</option></select><label>Offline media path</label><input name='offline_media' value='{e(c['offline_media'])}'></div><div><label>Stream profile</label><select name='stream_profile'>{_hardware_profile_options(str(c['stream_profile'] or 'global'),True)}</select><div class='muted small'>Manage and test GPUs under System → Hardware Acceleration.</div><label>Stream mode</label><select name='stream_mode'><option value='mpegts' {'selected' if c['stream_mode']=='mpegts' else ''}>MPEG-TS — sanitized / recommended</option><option value='mpegts_legacy' {'selected' if c['stream_mode']=='mpegts_legacy' else ''}>MPEG-TS Legacy — direct shared feed</option><option value='hls' {'selected' if c['stream_mode']=='hls' else ''}>HLS Segmenter — compatibility</option><option value='hls_direct' {'selected' if c['stream_mode']=='hls_direct' else ''}>HLS Direct — low latency</option></select><div class='muted small'>Choose how IPTV clients receive this channel. All modes reuse the one shared station producer.</div><label>Resolution</label><input name='resolution' value='{e(c['resolution'])}'><label>Video bitrate</label><input name='video_bitrate' value='{e(c['video_bitrate'])}'><label>Frame rate (optional)</label><input name='frame_rate' value='{e(c['frame_rate'])}'></div></div><h3>Attach collections</h3>"+''.join(f"<label style='display:block'><input type='checkbox' name='collection_id' value='{x['id']}' {'checked' if x['id'] in linked else ''}>{e(x['name'])}</label>" for x in collections)+"<label>Filler preset</label><select name='filler_id'><option value=''>None</option>"+''.join(f"<option value='{f['id']}' {'selected' if cf and cf['filler_id']==f['id'] else ''}>{e(f['name'])}</option>" for f in fillers)+"</select><button>Save presentation & sources</button></form></div>"
+    body=(f"<div class='msg'>{e(msg)}</div>" if msg else '')+f"<div class='card'><h2>{e(c['number'])} {e(c['name'])}</h2><form method='post' action='/studio/channel/{channel_id}/settings'><div class='grid'><div><label>Logo path</label><input name='logo_path' value='{e(c['logo_path'])}' placeholder='C:\\Media\\logos\\channel.png'><label><input type='checkbox' name='watermark_enabled' value='1' {'checked' if c['watermark_enabled'] else ''}> Watermark/logo bug</label><label>Subtitle mode</label><select name='subtitle_mode'><option {'selected' if c['subtitle_mode']=='none' else ''}>none</option><option {'selected' if c['subtitle_mode']=='burn' else ''}>burn</option><option {'selected' if c['subtitle_mode']=='copy' else ''}>copy</option></select><label>Offline media path</label><input name='offline_media' value='{e(c['offline_media'])}'></div><div><label>Stream profile</label><select name='stream_profile'>{_hardware_profile_options(str(c['stream_profile'] or 'global'),True)}</select><div class='muted small'>Manage and test GPUs under System → Hardware Acceleration.</div><label>Stream mode</label><select name='stream_mode'><option value='mpegts' {'selected' if c['stream_mode']=='mpegts' else ''}>MPEG-TS — sanitized / recommended</option><option value='mpegts_legacy' {'selected' if c['stream_mode']=='mpegts_legacy' else ''}>MPEG-TS Legacy — direct shared feed</option><option value='hls' {'selected' if c['stream_mode']=='hls' else ''}>HLS Segmenter — compatibility</option><option value='hls_direct' {'selected' if c['stream_mode']=='hls_direct' else ''}>HLS Direct — low latency</option></select><div class='muted small'>Choose how IPTV clients receive this channel. All modes reuse the one shared station producer.</div><label>Resolution</label><input name='resolution' value='{e(c['resolution'])}'><label>Video bitrate</label><input name='video_bitrate' value='{e(c['video_bitrate'])}'><label>Frame rate (optional)</label><input name='frame_rate' value='{e(c['frame_rate'])}'></div></div><h3>Attach collections</h3>"+''.join(f"<label style='display:block'><input type='checkbox' name='collection_id' value='{x['id']}' {'checked' if x['id'] in linked else ''}>{e(x['name'])}</label>" for x in collections)+"<label>Filler preset</label><select name='filler_id'><option value=''>None</option>"+''.join(f"<option value='{f['id']}' {'selected' if cf and cf['filler_id']==f['id'] else ''}>{e(f['name'])}</option>" for f in fillers)+"</select><button>Save presentation & sources</button></form></div>"
     with db() as conn:
         cp=conn.execute('SELECT cp.*,cs.name schedule_name FROM classic_playouts cp JOIN classic_schedules cs ON cs.id=cp.schedule_id WHERE cp.channel_id=?',(channel_id,)).fetchone()
     body+=f"<div class='card'><h2>Classic Schedule / Playout</h2><p>{('Assigned: <b>'+e(cp['schedule_name'])+'</b>') if cp else 'No reusable Classic Schedule assigned.'}</p><a class='button' href='/scheduling/playouts'>Assign Playout</a> <a class='button secondary' href='/scheduling/schedules'>Edit Schedules</a></div>"
@@ -10602,6 +10602,7 @@ def _hardware_profile_options(selected: str, include_global: bool = True) -> str
         ("vaapi", "VAAPI (Intel / AMD)"),
         ("qsv", "Intel Quick Sync (QSV)"),
         ("nvenc", "NVIDIA NVENC"),
+        ("amf", "AMD AMF"),
         ("direct", "Direct / Copy (no video transcode)"),
     ]
     return ''.join(f"<option value='{e(v)}' {'selected' if selected==v else ''}>{e(label)}</option>" for v,label in choices)
@@ -10626,7 +10627,7 @@ def hardware_status_api():
         'recommended': st['recommended'],
         'selected_vaapi_device': st['selected_vaapi_device'],
         'devices': st['devices'],
-        'profiles': {k: st[k] for k in ('software','vaapi','qsv','nvenc')},
+        'profiles': {k: st[k] for k in ('software','vaapi','qsv','nvenc','amf')},
         'nvidia_visible': st['nvidia_visible'],
     })
 
@@ -10640,7 +10641,7 @@ def hardware_acceleration_page(msg: str = ''):
     effective_global = global_profile
     if effective_global == 'auto':
         effective_global = st['recommended']
-    prereq = st.get(effective_global) if effective_global in ('software','vaapi','qsv','nvenc') else {'available': True}
+    prereq = st.get(effective_global) if effective_global in ('software','vaapi','qsv','nvenc','amf') else {'available': True}
     global_ready = bool(prereq and prereq.get('available'))
     badge = "<span class='badge green'>READY</span>" if global_ready else "<span class='badge red'>FALLBACK / NOT READY</span>"
 
@@ -10649,10 +10650,10 @@ def hardware_acceleration_page(msg: str = ''):
         selected = ' <b>(preferred)</b>' if d.get('render') == st.get('selected_vaapi_device') else ''
         device_rows += f"<tr><td>{e(d.get('vendor') or 'Unknown')}</td><td><code>{e(d.get('render') or '')}</code>{selected}</td><td>{e(d.get('card') or '')}</td><td>{e(d.get('vendor_id') or 'Unknown')}</td></tr>"
     if not device_rows:
-        device_rows = "<tr><td colspan='4' class='empty'>No DRM render devices are visible inside this container.</td></tr>"
+        device_rows = ("<tr><td colspan='4' class='empty'>No Windows display adapters were detected.</td></tr>" if os.name=='nt' else "<tr><td colspan='4' class='empty'>No DRM render devices are visible inside this container.</td></tr>")
 
     profile_rows = ''
-    for key,label in [('software','Software / libx264'),('vaapi','VAAPI — Intel / AMD'),('qsv','Intel Quick Sync'),('nvenc','NVIDIA NVENC')]:
+    for key,label in [('software','Software / libx264'),('vaapi','VAAPI — Intel / AMD (Linux)'),('qsv','Intel Quick Sync'),('nvenc','NVIDIA NVENC'),('amf','AMD AMF')]:
         x=st[key]; ok=bool(x.get('available'))
         b="<span class='badge green'>AVAILABLE</span>" if ok else "<span class='badge red'>UNAVAILABLE</span>"
         test = f"<form class='inline' method='post' action='/system/hardware/test'><input type='hidden' name='profile' value='{key}'><button class='secondary' {'disabled' if not ok else ''}>Test</button></form>"
@@ -10711,8 +10712,8 @@ def hardware_acceleration_page(msg: str = ''):
     <form method='post' action='/system/hardware/settings'>
       <label>Default profile for channels set to “Use Global Default”</label>
       <select name='default_profile'>{_hardware_profile_options(global_profile,False)}</select>
-      <label>Preferred VAAPI / QSV render device</label>
-      <select name='vaapi_device'>{render_options}</select>
+      <label>{'GPU device selection (automatic on Windows)' if os.name=='nt' else 'Preferred VAAPI / QSV render device'}</label>
+      <select name='vaapi_device' {'disabled' if os.name=='nt' else ''}>{render_options}</select>
       <label style='display:block;margin-top:12px'><input type='checkbox' name='software_fallback' value='1' {fallback_checked}> Automatically fall back to software if the selected hardware encoder is unavailable or fails to initialize</label>
       <button>Save Hardware Settings</button>
     </form>
@@ -10721,10 +10722,10 @@ def hardware_acceleration_page(msg: str = ''):
     <p class='muted small'>Direct/Copy channels are left unchanged by the bulk button. Changing a channel profile restarts its shared station producer so the new encoder is used on the next connection.</p>
   </div>
   <div class='card'><h2>Container Device Visibility</h2>
-    <p><b>DRM render devices:</b> {len(st['devices'])}</p>
-    <p><b>NVIDIA device nodes:</b> {'Visible' if st['nvidia_visible'] else 'Not visible'}</p>
-    <p><b>vainfo on selected device:</b> {'OK' if st['vainfo_ok'] else 'Failed / unavailable'}</p>
-    <p class='muted small'>Intel and AMD normally use <code>/dev/dri</code>. NVIDIA NVENC additionally requires the NVIDIA Container Toolkit/runtime to expose the GPU and driver libraries to this container. ViperTV will never silently rewrite your OMV Compose file.</p>
+    <p><b>{'Windows display adapters' if os.name=='nt' else 'DRM render devices'}:</b> {len(st['devices'])}</p>
+    <p><b>NVIDIA GPU:</b> {'Detected' if st['nvidia_visible'] else 'Not detected'}</p>
+    <p><b>{'Windows GPU probe' if os.name=='nt' else 'vainfo on selected device'}:</b> {'Native Windows detection' if os.name=='nt' else ('OK' if st['vainfo_ok'] else 'Failed / unavailable')}</p>
+    <p class='muted small'>{'Windows uses Intel QSV, NVIDIA NVENC, and AMD AMF through the installed graphics drivers. VAAPI is Linux-only.' if os.name=='nt' else 'Intel and AMD normally use /dev/dri. NVIDIA NVENC additionally requires the NVIDIA Container Toolkit/runtime to expose the GPU and driver libraries to this container.'}</p>
   </div>
 </div>
 <div class='card'><h2>Detected GPUs</h2><div class='table-wrap'><table><thead><tr><th>Vendor</th><th>Render node</th><th>Card</th><th>PCI vendor</th></tr></thead><tbody>{device_rows}</tbody></table></div></div>
@@ -10732,7 +10733,7 @@ def hardware_acceleration_page(msg: str = ''):
 {last_test_html}
 <div class='card'><h2>Per-Channel Hardware Override</h2><div class='table-wrap'><table><thead><tr><th>#</th><th>Channel</th><th>Configured</th><th>Effective now</th><th>Fallback note</th></tr></thead><tbody>{channel_rows}</tbody></table></div></div>
 <div class='card'><h2>Active Hardware Sessions</h2><div class='table-wrap'><table><thead><tr><th>Channel</th><th>Configured</th><th>Effective</th><th>Fallbacks</th><th>Last fallback reason</th></tr></thead><tbody>{active_rows}</tbody></table></div></div>
-<div class='card'><h2>VAAPI Diagnostic</h2><pre style='white-space:pre-wrap;max-height:420px;overflow:auto'>{e(st['vainfo'])}</pre></div>
+<div class='card'><h2>{'Windows GPU Diagnostic' if os.name=='nt' else 'VAAPI Diagnostic'}</h2><pre style='white-space:pre-wrap;max-height:420px;overflow:auto'>{e(st['vainfo'])}</pre></div>
 """
     return page_shell('Hardware Acceleration', body)
 
@@ -10740,12 +10741,12 @@ def hardware_acceleration_page(msg: str = ''):
 @app.post('/system/hardware/settings')
 def hardware_acceleration_settings(default_profile:str=Form('auto'),vaapi_device:str=Form(''),software_fallback:int=Form(0)):
     profile=default_profile.strip().lower()
-    if profile not in {'auto','software','vaapi','qsv','nvenc','direct'}:
+    if profile not in {'auto','software','vaapi','qsv','nvenc','amf','direct'}:
         return RedirectResponse('/system/hardware?msg='+quote('Invalid hardware profile.'),303)
     devices={d['render'] for d in hwaccel.discover_dri_devices()}
     vaapi_device=vaapi_device.strip()
     if vaapi_device and vaapi_device not in devices:
-        return RedirectResponse('/system/hardware?msg='+quote('The selected render device is not visible in the container.'),303)
+        return RedirectResponse('/system/hardware?msg='+quote('The selected render device is not available to ViperTV.'),303)
     safe_backup_before_change()
     set_setting('hardware_default_profile',profile)
     set_setting('hardware_vaapi_device',vaapi_device)
@@ -10798,7 +10799,7 @@ def hardware_channel_profile(channel_id:int,stream_profile:str=Form('global')):
 def enable_vaapi_all_channels():
     safe_backup_before_change(); set_setting('hardware_default_profile','vaapi')
     with db() as conn:
-        cur=conn.execute("UPDATE channels SET stream_profile='global' WHERE stream_profile IN ('software','vaapi','qsv','nvenc','auto','global')");conn.commit();count=cur.rowcount
+        cur=conn.execute("UPDATE channels SET stream_profile='global' WHERE stream_profile IN ('software','vaapi','qsv','nvenc','amf','auto','global')");conn.commit();count=cur.rowcount
     return RedirectResponse('/system/hardware?msg='+quote(f'VAAPI selected globally for {count} channel(s).'),303)
 
 
@@ -10806,7 +10807,7 @@ def enable_vaapi_all_channels():
 def disable_vaapi_all_channels():
     safe_backup_before_change(); set_setting('hardware_default_profile','software')
     with db() as conn:
-        cur=conn.execute("UPDATE channels SET stream_profile='global' WHERE stream_profile IN ('software','vaapi','qsv','nvenc','auto','global')");conn.commit();count=cur.rowcount
+        cur=conn.execute("UPDATE channels SET stream_profile='global' WHERE stream_profile IN ('software','vaapi','qsv','nvenc','amf','auto','global')");conn.commit();count=cur.rowcount
     return RedirectResponse('/system/hardware?msg='+quote(f'Software encoding selected globally for {count} channel(s).'),303)
 
 
@@ -10864,12 +10865,9 @@ def _profiled_local_command(channel:sqlite3.Row,item:dict[str,Any],offset:float,
     resolution=channel['resolution'] or '1920x1080'
     scale=resolution.replace('x',':')
     preferred=hardware_preferred_vaapi_device() or None
-    prereq=hwaccel.profile_prerequisites(profile, preferred) if profile in {'vaapi','qsv','nvenc'} else {}
+    prereq=hwaccel.profile_prerequisites(profile, preferred) if profile in {'vaapi','qsv','nvenc','amf'} else {}
     base=['ffmpeg','-hide_banner','-loglevel','error']
-    if profile=='vaapi':
-        base += ['-vaapi_device',str(prereq.get('device') or preferred or '/dev/dri/renderD128')]
-    elif profile=='qsv':
-        base += ['-qsv_device',str(prereq.get('device') or preferred or '/dev/dri/renderD128')]
+    base += hwaccel.ffmpeg_device_args(profile, preferred)
     base += ['-re','-ss',f'{max(offset,0):.3f}','-i',path]
 
     cpu_filters=[]
@@ -10890,6 +10888,7 @@ def _profiled_local_command(channel:sqlite3.Row,item:dict[str,Any],offset:float,
     if profile=='vaapi': post=[f'scale={scale}','format=nv12','hwupload']
     elif profile=='qsv': post=[f'scale={scale}','format=nv12']
     elif profile=='nvenc': post=[f'scale={scale}','format=yuv420p']
+    elif profile=='amf': post=[f'scale={scale}','format=nv12']
     elif profile=='software': post=[f'scale={scale}']
 
     if has_logo:
@@ -10915,6 +10914,8 @@ def _profiled_local_command(channel:sqlite3.Row,item:dict[str,Any],offset:float,
         base += ['-c:v','h264_vaapi','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE]
     elif profile=='nvenc':
         base += ['-c:v','h264_nvenc','-preset','p4','-tune','ll','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE]
+    elif profile=='amf':
+        base += ['-c:v','h264_amf','-quality','speed','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE]
     else:
         base += ['-c:v','libx264','-preset',TRANSCODE_PRESET,'-pix_fmt','yuv420p','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE,'-ar','48000']
     if channel['frame_rate']:base += ['-r',str(channel['frame_rate'])]
@@ -11073,12 +11074,9 @@ def _profiled_plex_part_command(channel: sqlite3.Row, item: dict[str, Any], offs
     resolution = channel['resolution'] or '1920x1080'
     scale = resolution.replace('x',':')
     preferred=hardware_preferred_vaapi_device() or None
-    prereq=hwaccel.profile_prerequisites(profile, preferred) if profile in {'vaapi','qsv','nvenc'} else {}
+    prereq=hwaccel.profile_prerequisites(profile, preferred) if profile in {'vaapi','qsv','nvenc','amf'} else {}
     base = ['ffmpeg','-hide_banner','-loglevel','error']
-    if profile == 'vaapi':
-        base += ['-vaapi_device',str(prereq.get('device') or preferred or '/dev/dri/renderD128')]
-    elif profile == 'qsv':
-        base += ['-qsv_device',str(prereq.get('device') or preferred or '/dev/dri/renderD128')]
+    base += hwaccel.ffmpeg_device_args(profile, preferred)
     base += ['-re','-ss',f'{max(offset,0):.3f}','-headers',headers,'-i',url]
     base += ['-map','0:v:0?','-map','0:a:0?']
     if profile == 'direct':
@@ -11089,6 +11087,8 @@ def _profiled_plex_part_command(channel: sqlite3.Row, item: dict[str, Any], offs
         base += ['-vf',f'scale={scale},format=nv12,hwupload','-c:v','h264_vaapi','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE]
     elif profile == 'nvenc':
         base += ['-vf',f'scale={scale},format=yuv420p','-c:v','h264_nvenc','-preset','p4','-tune','ll','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE]
+    elif profile == 'amf':
+        base += ['-vf',f'scale={scale},format=nv12','-c:v','h264_amf','-quality','speed','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE]
     else:
         base += ['-c:v','libx264','-preset',TRANSCODE_PRESET,'-s',resolution,'-pix_fmt','yuv420p','-b:v',bitrate,'-c:a','aac','-b:a',AUDIO_BITRATE,'-ar','48000']
     if channel['frame_rate']:

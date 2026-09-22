@@ -218,7 +218,7 @@ def _profile_hw_override(profile: Any) -> str | None:
     hw = str(profile['hardware_profile'] or 'inherit').strip().lower()
     if hw == 'inherit':
         return None
-    return hw if hw in {'global','auto','software','vaapi','qsv','nvenc','direct'} else None
+    return hw if hw in {'global','auto','software','vaapi','qsv','nvenc','amf','direct'} else None
 
 
 def _remove_pair(cmd: list[str], flag: str) -> None:
@@ -248,7 +248,7 @@ def _apply_ffmpeg_profile_to_command(cmd: list[str], profile: Any, item: dict[st
     video_mode = str(profile['video_codec'] or 'h264').strip().lower()
     audio_mode = str(profile['audio_codec'] or 'aac').strip().lower()
     actual_hw = str(item.get('_actual_stream_profile') or '').strip().lower()
-    if actual_hw not in {'software','vaapi','qsv','nvenc','direct'}:
+    if actual_hw not in {'software','vaapi','qsv','nvenc','amf','direct'}:
         actual_hw = 'software'
 
     # Video encoder. Stream copy is only valid when there are no graphics/subtitle filters.
@@ -259,9 +259,9 @@ def _apply_ffmpeg_profile_to_command(cmd: list[str], profile: Any, item: dict[st
             video_mode = 'h264'
             item['_ffmpeg_profile_warning'] = 'Video copy requested but active filters require encoding; using H.264.'
         if video_mode == 'hevc':
-            venc = {'nvenc':'hevc_nvenc','qsv':'hevc_qsv','vaapi':'hevc_vaapi'}.get(actual_hw, 'libx265')
+            venc = {'nvenc':'hevc_nvenc','qsv':'hevc_qsv','vaapi':'hevc_vaapi','amf':'hevc_amf'}.get(actual_hw, 'libx265')
         else:
-            venc = {'nvenc':'h264_nvenc','qsv':'h264_qsv','vaapi':'h264_vaapi'}.get(actual_hw, 'libx264')
+            venc = {'nvenc':'h264_nvenc','qsv':'h264_qsv','vaapi':'h264_vaapi','amf':'h264_amf'}.get(actual_hw, 'libx264')
     _set_pair(out, '-c:v', venc)
 
     # Audio encoder.
@@ -399,12 +399,12 @@ def _external_paths_page(msg: str = '') -> str:
     status = ''.join(f"<tr><td>{_e(str(s['kind']).title())} / {_e(s['name'])}</td><td>{cmap.get(int(s['id']),(0,0))[1]:,}</td><td>{cmap.get(int(s['id']),(0,0))[0]:,}</td><td><form method='post' action='/sources/path-replacements/refresh'><input type='hidden' name='server_id' value='{s['id']}'><button class='secondary'>Recheck paths</button></form></td></tr>" for s in servers) or "<tr><td colspan='4'>No Jellyfin/Emby servers configured.</td></tr>"
     body = (f"<div class='msg'>{_e(msg)}</div>" if msg else '') + _heading(
         'Jellyfin / Emby Direct Media Paths',
-        'Translate media-server filesystem paths into paths that already exist inside the ViperTV container. Metadata still comes from Jellyfin/Emby; playback reads the file directly when a mapping resolves.',
+        'Translate media-server filesystem paths into Windows paths accessible to ViperTV. Metadata still comes from Jellyfin/Emby; playback reads the file directly when a mapping resolves.',
         "<a class='button secondary' href='/sources'>Back to Sources</a>",
     ) + f"""
-<div class='grid'><div class='card'><h2>Add Path Replacement</h2><form method='post' action='/sources/path-replacements/add'><label>Server</label><select name='server_id'>{opts}</select><label>Media server path prefix</label><input name='remote_prefix' required placeholder='D:\\Media\\TV or /srv/media/tv'><label>ViperTV container path prefix</label><input name='local_prefix' required placeholder='/mnt/share2'><label>Priority</label><input type='number' name='priority' value='100'><button>Add Replacement</button></form></div>
-<div class='card'><h2>Test Translation</h2><form method='post' action='/sources/path-replacements/test'><label>Server</label><select name='server_id'>{opts}</select><label>Path reported by Jellyfin/Emby</label><input name='remote_path' required placeholder='D:\\Media\\TV\\Show\\Episode.mkv'><button>Test Path</button></form><p class='muted small'>A rule is considered usable only when the translated file actually exists inside this ViperTV container. If it does not, playback automatically falls back to the Jellyfin/Emby HTTP stream.</p></div></div>
-<div class='card'><h2>Configured Replacements</h2><div class='table-wrap'><table><thead><tr><th>Server</th><th>Remote Prefix</th><th>Container Prefix</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>{trs}</tbody></table></div></div>
+<div class='grid'><div class='card'><h2>Add Path Replacement</h2><form method='post' action='/sources/path-replacements/add'><label>Server</label><select name='server_id'>{opts}</select><label>Media server path prefix</label><input name='remote_prefix' required placeholder='D:\\Media\\TV or /srv/media/tv'><label>ViperTV local path prefix</label><input name='local_prefix' required placeholder='D:\\Media\\TV or \\\\server\\share\\TV'><label>Priority</label><input type='number' name='priority' value='100'><button>Add Replacement</button></form></div>
+<div class='card'><h2>Test Translation</h2><form method='post' action='/sources/path-replacements/test'><label>Server</label><select name='server_id'>{opts}</select><label>Path reported by Jellyfin/Emby</label><input name='remote_path' required placeholder='D:\\Media\\TV\\Show\\Episode.mkv'><button>Test Path</button></form><p class='muted small'>A rule is usable only when the translated file actually exists and is accessible to ViperTV. If not, playback automatically falls back to the Jellyfin/Emby HTTP stream.</p></div></div>
+<div class='card'><h2>Configured Replacements</h2><div class='table-wrap'><table><thead><tr><th>Server</th><th>Remote Prefix</th><th>Local Prefix</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>{trs}</tbody></table></div></div>
 <div class='card'><h2>Direct-path coverage</h2><div class='table-wrap'><table><thead><tr><th>Server</th><th>Mapped files</th><th>Indexed files</th><th></th></tr></thead><tbody>{status}</tbody></table></div></div>"""
     return _page('Direct Media Paths', body)
 
@@ -445,7 +445,7 @@ def _ffmpeg_profile_edit(pid: int, msg: str = '') -> str:
         p=conn.execute('SELECT * FROM ffmpeg_profiles WHERE id=?',(pid,)).fetchone()
     if not p: raise HTTPException(404,'FFmpeg profile not found')
     body=(f"<div class='msg'>{_e(msg)}</div>" if msg else '')+_heading('Edit FFmpeg Profile',str(p['name']),"<a class='button secondary' href='/system/ffmpeg-profiles'>Back</a>")+f"""
-<div class='card'><form method='post' action='/system/ffmpeg-profiles/{pid}/save'><div class='grid3'><div><label>Name</label><input name='name' value='{_e(p['name'])}' required><label>Description</label><input name='description' value='{_e(p['description'] or '')}'><label>Hardware / encoder path</label><select name='hardware_profile'>{_select(str(p['hardware_profile']),[('inherit','Inherit channel hardware'),('global','Use global hardware setting'),('auto','Auto detect'),('software','Software'),('vaapi','VAAPI'),('qsv','Intel QSV'),('nvenc','NVIDIA NVENC'),('direct','Direct / copy')])}</select><label>Video mode</label><select name='video_codec'>{_select(str(p['video_codec']),[('h264','H.264'),('hevc','HEVC / H.265'),('copy','Copy video when filters allow')])}</select><label>Audio mode</label><select name='audio_codec'>{_select(str(p['audio_codec']),[('aac','AAC'),('ac3','AC-3'),('copy','Copy audio')])}</select></div><div><label>Resolution</label><input name='resolution' value='{_e(p['resolution'])}' placeholder='inherit or 1920x1080'><label>Video bitrate</label><input name='video_bitrate' value='{_e(p['video_bitrate'])}' placeholder='inherit or 8000k'><label>Maximum bitrate (optional)</label><input name='maxrate' value='{_e(p['maxrate'] or '')}' placeholder='9000k'><label>Rate-control buffer (optional)</label><input name='bufsize' value='{_e(p['bufsize'] or '')}' placeholder='16000k'><label>Frame rate</label><input name='frame_rate' value='{_e(p['frame_rate'] or '')}' placeholder='blank = inherit'></div><div><label>Encoder preset (optional)</label><input name='preset' value='{_e(p['preset'] or '')}' placeholder='veryfast / p4 / medium'><label>Pixel format</label><input name='pixel_format' value='{_e(p['pixel_format'])}' placeholder='yuv420p'><label>Audio bitrate</label><input name='audio_bitrate' value='{_e(p['audio_bitrate'])}' placeholder='192k'><label>Sample rate</label><input type='number' name='sample_rate' value='{int(p['sample_rate'])}'><label>Audio channels</label><input type='number' min='1' max='8' name='audio_channels' value='{int(p['audio_channels'])}'><label><input type='checkbox' name='enabled' value='1' {'checked' if p['enabled'] else ''}> Enabled</label></div></div><button>Save Profile</button></form></div>
+<div class='card'><form method='post' action='/system/ffmpeg-profiles/{pid}/save'><div class='grid3'><div><label>Name</label><input name='name' value='{_e(p['name'])}' required><label>Description</label><input name='description' value='{_e(p['description'] or '')}'><label>Hardware / encoder path</label><select name='hardware_profile'>{_select(str(p['hardware_profile']),[('inherit','Inherit channel hardware'),('global','Use global hardware setting'),('auto','Auto detect'),('software','Software'),('vaapi','VAAPI'),('qsv','Intel QSV'),('nvenc','NVIDIA NVENC'),('amf','AMD AMF'),('direct','Direct / copy')])}</select><label>Video mode</label><select name='video_codec'>{_select(str(p['video_codec']),[('h264','H.264'),('hevc','HEVC / H.265'),('copy','Copy video when filters allow')])}</select><label>Audio mode</label><select name='audio_codec'>{_select(str(p['audio_codec']),[('aac','AAC'),('ac3','AC-3'),('copy','Copy audio')])}</select></div><div><label>Resolution</label><input name='resolution' value='{_e(p['resolution'])}' placeholder='inherit or 1920x1080'><label>Video bitrate</label><input name='video_bitrate' value='{_e(p['video_bitrate'])}' placeholder='inherit or 8000k'><label>Maximum bitrate (optional)</label><input name='maxrate' value='{_e(p['maxrate'] or '')}' placeholder='9000k'><label>Rate-control buffer (optional)</label><input name='bufsize' value='{_e(p['bufsize'] or '')}' placeholder='16000k'><label>Frame rate</label><input name='frame_rate' value='{_e(p['frame_rate'] or '')}' placeholder='blank = inherit'></div><div><label>Encoder preset (optional)</label><input name='preset' value='{_e(p['preset'] or '')}' placeholder='veryfast / p4 / medium'><label>Pixel format</label><input name='pixel_format' value='{_e(p['pixel_format'])}' placeholder='yuv420p'><label>Audio bitrate</label><input name='audio_bitrate' value='{_e(p['audio_bitrate'])}' placeholder='192k'><label>Sample rate</label><input type='number' name='sample_rate' value='{int(p['sample_rate'])}'><label>Audio channels</label><input type='number' min='1' max='8' name='audio_channels' value='{int(p['audio_channels'])}'><label><input type='checkbox' name='enabled' value='1' {'checked' if p['enabled'] else ''}> Enabled</label></div></div><button>Save Profile</button></form></div>
 <div class='card'><h2>Behavior</h2><p>Graphics/subtitle filters still take priority over direct stream-copy. If a profile requests video copy while an active graphic or burned subtitle requires filtering, ViperTV safely encodes that programme instead. Hardware encoder availability continues to use the v1.2.5 fallback system.</p><form method='post' action='/system/ffmpeg-profiles/{pid}/delete' onsubmit="return confirm('Delete this FFmpeg profile?');"><button class='danger'>Delete Profile</button></form></div>"""
     return _page('Edit FFmpeg Profile',body)
 
@@ -506,7 +506,7 @@ def install_v130(app, main_globals: dict[str, Any]) -> None:
     @app.post('/sources/path-replacements/test')
     def v130_external_path_test(server_id:int=Form(...),remote_path:str=Form(...)):
         x=_translate_external_path(server_id,remote_path)
-        msg=('Matched existing container file: '+x) if x else 'No enabled rule produced an existing file inside the ViperTV container.'
+        msg=('Matched existing local file: '+x) if x else 'No enabled rule produced an existing file accessible to ViperTV.'
         return RedirectResponse('/sources/path-replacements?msg='+quote(msg),303)
 
     @app.post('/sources/path-replacements/refresh')
@@ -533,7 +533,7 @@ def install_v130(app, main_globals: dict[str, Any]) -> None:
 
     @app.post('/system/ffmpeg-profiles/{pid}/save')
     def v130_profile_save(pid:int,name:str=Form(...),description:str=Form(''),hardware_profile:str=Form('inherit'),video_codec:str=Form('h264'),audio_codec:str=Form('aac'),resolution:str=Form('inherit'),video_bitrate:str=Form('inherit'),audio_bitrate:str=Form('192k'),frame_rate:str=Form(''),preset:str=Form(''),pixel_format:str=Form('yuv420p'),sample_rate:int=Form(48000),audio_channels:int=Form(2),maxrate:str=Form(''),bufsize:str=Form(''),enabled:int=Form(0)):
-        hardware_profile=hardware_profile if hardware_profile in {'inherit','global','auto','software','vaapi','qsv','nvenc','direct'} else 'inherit'
+        hardware_profile=hardware_profile if hardware_profile in {'inherit','global','auto','software','vaapi','qsv','nvenc','amf','direct'} else 'inherit'
         video_codec=video_codec if video_codec in {'h264','hevc','copy'} else 'h264'
         audio_codec=audio_codec if audio_codec in {'aac','ac3','copy'} else 'aac'
         resolution=resolution.strip() or 'inherit';video_bitrate=video_bitrate.strip() or 'inherit';audio_bitrate=audio_bitrate.strip() or '192k'

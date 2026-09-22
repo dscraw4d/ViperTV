@@ -9,8 +9,10 @@ import os
 import re
 import secrets
 import shlex
+import shutil
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -205,10 +207,24 @@ def _images_page_v140(msg: str='') -> str:
     rows=''.join(f"<tr><td>{_e(r['library_name'] or 'All libraries')}</td><td><code>{_e(r['folder_path'])}</code></td><td>{float(r['duration_seconds']):g}s</td><td>{'Yes' if r['enabled'] else 'No'}</td><td><form class='inline' method='post' action='/media/images/folder-duration/{r['id']}/delete'><button class='danger'>Delete</button></form></td></tr>" for r in rules) or "<tr><td colspan='5' class='empty'>No folder duration rules yet.</td></tr>"
     extra=f"""
 <div class='card'><h2>Folder duration inheritance</h2><p class='muted'>A rule applies to every image in that folder and its child folders. The most specific matching child folder wins. An explicit per-image duration still wins over folder inheritance.</p>
-<form method='post' action='/media/images/folder-duration/add'><div class='grid3'><div><label>Library</label><select name='library_id'>{libopts}</select></div><div><label>Folder path inside container</label><input name='folder_path' required placeholder='/mnt/share2/Station IDs'></div><div><label>Duration seconds</label><input type='number' name='seconds' min='1' max='86400' step='.5' value='10'></div></div><button>Add Folder Rule</button></form>
+<form method='post' action='/media/images/folder-duration/add'><div class='grid3'><div><label>Library</label><select name='library_id'>{libopts}</select></div><div><label>Folder path visible to ViperTV</label><input name='folder_path' required placeholder='D:\\Media\\Station IDs'></div><div><label>Duration seconds</label><input type='number' name='seconds' min='1' max='86400' step='.5' value='10'></div></div><button>Add Folder Rule</button></form>
 <div class='table-wrap' style='margin-top:16px'><table><thead><tr><th>Library</th><th>Folder</th><th>Duration</th><th>Enabled</th><th></th></tr></thead><tbody>{rows}</tbody></table></div></div>"""
     pos=base.rfind('</main>')
     return base[:pos]+extra+base[pos:] if pos>=0 else base+extra
+
+
+def _standalone_data_subdir(name: str) -> Path:
+    base = Path(os.environ.get('VIPERTV_DATA_DIR', '/data')).resolve()
+    p = base / name
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _remote_script_root() -> Path:
+    default = str(_standalone_data_subdir('remote-scripts'))
+    p = Path(_setting('remote_script_root', default)).resolve()
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 # ---------------- general remote stream definitions ----------------
@@ -231,7 +247,7 @@ def _remote_command(channel: Any, item: dict[str, Any], offset: float, profile_o
     if not isinstance(argv,list) or not argv: raise RuntimeError('Remote command has no executable configured')
     argv=[str(x) for x in argv]
     exe=Path(argv[0])
-    allowed=Path(_setting('remote_script_root','/data/remote-scripts')).resolve()
+    allowed=_remote_script_root()
     try: resolved=exe.resolve()
     except Exception: resolved=exe
     if not resolved.is_absolute() or os.path.commonpath([str(resolved),str(allowed)])!=str(allowed):
@@ -240,6 +256,9 @@ def _remote_command(channel: Any, item: dict[str, Any], offset: float, profile_o
     ff=['ffmpeg','-hide_banner','-loglevel','error','-fflags','+genpts','-i','pipe:0','-t',f'{dur:.3f}','-map','0:v:0?','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-f','mpegts','pipe:1']
     # create_subprocess_exec executes this wrapper; shlex.join keeps configured
     # argv literal while still allowing a stdout pipe into FFmpeg.
+    if os.name == 'nt':
+        # cmd.exe provides a native stdout pipe between the trusted producer and FFmpeg.
+        return ['cmd.exe','/d','/s','/c',subprocess.list2cmdline(argv)+' | '+subprocess.list2cmdline(ff)]
     return ['/bin/sh','-c',f"exec {shlex.join(argv)} | {shlex.join(ff)}"]
 
 
@@ -254,7 +273,7 @@ def _remote_streams_page(msg: str='') -> str:
     trs=''.join(f"<tr><td>{_e(r['number'])}</td><td><b>{_e(r['name'])}</b></td><td>{_e(r['input_kind'] or 'url')}</td><td>{_e(r['stream_behavior'] or 'live')}</td><td>{_e((str(r['scheduled_duration'])+'s') if r['scheduled_duration'] else '—')}</td><td>{'Yes' if r['enabled'] else 'No'}</td><td><a class='button secondary' href='/sources/remote-streams/{r['id']}'>Edit</a></td></tr>" for r in rows) or "<tr><td colspan='7'>No remote streams.</td></tr>"
     notice=f"<div class='msg'>{_e(msg)}</div>" if msg else ''
     body=notice+_heading('Remote Streams','Define any FFmpeg-readable URL or a trusted executable whose stdout is media. Streams can behave as Live or scheduled VOD.',"<a class='button secondary' href='/live'>Legacy Live IPTV</a>")+f"""
-<div class='card'><h2>Add Remote Stream</h2><form method='post' action='/sources/remote-streams/add'><div class='grid3'><div><label>Channel number</label><input name='number' value='900'><label>Name</label><input name='name' required></div><div><label>Input kind</label><select name='input_kind'><option value='url'>URL / file readable by FFmpeg</option><option value='command'>Executable stdout</option></select><label>Behavior</label><select name='stream_behavior'><option value='live'>Live</option><option value='vod'>VOD / scheduled duration</option></select></div><div><label>URL</label><input name='stream_url' placeholder='https://example/stream.m3u8'><label>Scheduled seconds</label><input type='number' name='scheduled_duration' min='1' placeholder='3600'></div></div><label>Command JSON argv (command input only)</label><textarea name='command_json' rows='3' placeholder='[&quot;/data/remote-scripts/feed.sh&quot;,&quot;--channel&quot;,&quot;news&quot;]'></textarea><p class='muted small'>Executable paths are restricted to <code>{_e(_setting('remote_script_root','/data/remote-scripts'))}</code>.</p><button>Add Remote Stream</button></form></div>
+<div class='card'><h2>Add Remote Stream</h2><form method='post' action='/sources/remote-streams/add'><div class='grid3'><div><label>Channel number</label><input name='number' value='900'><label>Name</label><input name='name' required></div><div><label>Input kind</label><select name='input_kind'><option value='url'>URL / file readable by FFmpeg</option><option value='command'>Executable stdout</option></select><label>Behavior</label><select name='stream_behavior'><option value='live'>Live</option><option value='vod'>VOD / scheduled duration</option></select></div><div><label>URL</label><input name='stream_url' placeholder='https://example/stream.m3u8'><label>Scheduled seconds</label><input type='number' name='scheduled_duration' min='1' placeholder='3600'></div></div><label>Command JSON argv (command input only)</label><textarea name='command_json' rows='3' placeholder='[&quot;C:\\ViperTV\\remote-scripts\\feed.exe&quot;,&quot;--channel&quot;,&quot;news&quot;]'></textarea><p class='muted small'>Executable paths are restricted to <code>{_e(str(_remote_script_root()))}</code>.</p><button>Add Remote Stream</button></form></div>
 <div class='card'><div class='table-wrap'><table><thead><tr><th>#</th><th>Name</th><th>Input</th><th>Behavior</th><th>Duration</th><th>Enabled</th><th></th></tr></thead><tbody>{trs}</tbody></table></div></div>"""
     return _page('Remote Streams',body)
 
@@ -421,7 +440,7 @@ def _security_page(msg:str='')->str:
 <div class='grid'><div class='card'><h2>Management authentication</h2><form method='post' action='/system/security/local'><label><input type='checkbox' name='enabled' value='1' {'checked' if _setting('auth_enabled')=='1' else ''}> Require authentication for management</label><label>Administrator username</label><input name='username' value='{_e(_setting('auth_admin_username','admin'))}'><label>New password (leave blank to keep existing)</label><input type='password' name='password'><button>Save Local Login</button></form></div>
 <div class='card'><h2>OIDC / OpenID Connect</h2><form method='post' action='/system/security/oidc'><label><input type='checkbox' name='enabled' value='1' {'checked' if _setting('oidc_enabled')=='1' else ''}> Enable OIDC sign-in</label><label>Discovery URL</label><input name='discovery_url' value='{_e(_setting('oidc_discovery_url'))}' placeholder='https://auth.example/.well-known/openid-configuration'><label>Client ID</label><input name='client_id' value='{_e(_setting('oidc_client_id'))}'><label>Client secret</label><input type='password' name='client_secret' placeholder='leave blank to keep existing'><label>Allowed email/domain (optional)</label><input name='allowed' value='{_e(_setting('oidc_allowed'))}' placeholder='user@example.com or example.com'><button>Save OIDC</button></form></div></div>
 <div class='grid'><div class='card'><h2>Protected IPTV / JWT</h2><form method='post' action='/system/security/iptv'><label><input type='checkbox' name='enabled' value='1' {'checked' if _setting('iptv_jwt_enabled')=='1' else ''}> Require signed access token for IPTV/stream endpoints</label><button>Save</button></form><p class='small muted'>Example one-year token:</p><code style='overflow-wrap:anywhere'>{_e(token)}</code><p><a class='button secondary' href='/iptv/channels.m3u?token={urllib.parse.quote(token)}'>Open tokenized M3U</a></p></div>
-<div class='card'><h2>Streaming-only port</h2><form method='post' action='/system/security/port'><label>External port</label><input type='number' name='port' value='{_e(_setting('streaming_only_port'))}' placeholder='8410'><button>Save Port Rule</button></form><p class='small muted'>Map this host port to container port 8409 in OMV. Requests arriving with this Host/X-Forwarded-Port may access streams, M3U/XMLTV and HDHomeRun endpoints only; management pages return 404.</p></div></div>"""
+<div class='card'><h2>Streaming-only port</h2><form method='post' action='/system/security/port'><label>External port</label><input type='number' name='port' value='{_e(_setting('streaming_only_port'))}' placeholder='8410'><button>Save Port Rule</button></form><p class='small muted'>On Windows Standalone, restart ViperTV after setting this port. The bundled streaming-only proxy will listen on that port and forward only IPTV/M3U/XMLTV/HDHomeRun traffic; management pages return 404.</p></div></div>"""
     return _page('Security & Network',body)
 
 
@@ -442,7 +461,8 @@ def _oidc_allowed(info:dict[str,Any])->bool:
 # ---------------- scripted execution + client ----------------
 
 def _script_root()->Path:
-    p=Path(_setting('scheduler_script_root','/data/scheduler-scripts'));p.mkdir(parents=True,exist_ok=True);return p.resolve()
+    default=str(_standalone_data_subdir('scheduler-scripts'))
+    p=Path(_setting('scheduler_script_root',default));p.mkdir(parents=True,exist_ok=True);return p.resolve()
 
 def _safe_script(path:str)->Path:
     p=Path(path);p=(p if p.is_absolute() else _script_root()/p).resolve();root=_script_root()
@@ -451,20 +471,35 @@ def _safe_script(path:str)->Path:
     return p
 
 def _script_argv(row:Any)->list[str]:
-    p=_safe_script(str(row['script_path']));interp=str(row['interpreter'] or 'auto')
+    p=_safe_script(str(row['script_path']));interp=str(row['interpreter'] or 'auto').lower()
     try:args=json.loads(str(row['arguments_json'] or '[]'))
     except Exception:args=[]
     if not isinstance(args,list):args=[]
-    if interp=='python' or (interp=='auto' and p.suffix.lower()=='.py'):return ['python3',str(p),*map(str,args)]
-    if interp=='shell' or (interp=='auto' and p.suffix.lower() in {'.sh','.bash'}):return ['/bin/sh',str(p),*map(str,args)]
-    return [str(p),*map(str,args)]
+    args=list(map(str,args));suffix=p.suffix.lower()
+    if interp=='python' or (interp=='auto' and suffix=='.py'):
+        py=Path(sys.executable)
+        if os.name=='nt' and py.name.lower()=='pythonw.exe' and py.with_name('python.exe').exists():py=py.with_name('python.exe')
+        return [str(py),str(p),*args]
+    if os.name=='nt':
+        if interp=='powershell' or (interp=='auto' and suffix=='.ps1'):
+            ps=shutil.which('powershell.exe') or shutil.which('pwsh.exe') or 'powershell.exe'
+            return [ps,'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(p),*args]
+        if interp in {'batch','shell'} or (interp=='auto' and suffix in {'.cmd','.bat'}):
+            return ['cmd.exe','/d','/s','/c',subprocess.list2cmdline([str(p),*args])]
+        if interp=='auto' and suffix in {'.sh','.bash'}:
+            bash=shutil.which('bash.exe') or shutil.which('bash')
+            if not bash:raise RuntimeError('A Bash executable is required to run .sh scripts on Windows')
+            return [bash,str(p),*args]
+    elif interp=='shell' or (interp=='auto' and suffix in {'.sh','.bash'}):
+        return ['/bin/sh',str(p),*args]
+    return [str(p),*args]
 
 def _run_scheduler_script(script_id:int,run_id:str)->None:
     with _db() as conn:r=conn.execute('SELECT * FROM scheduler_scripts WHERE id=?',(script_id,)).fetchone()
     if not r:return
-    started=time.time();env=os.environ.copy();env.update({'VIPERTV_API_BASE':'http://127.0.0.1:8409','VIPERTV_API_TOKEN':_setting('scripted_api_token'),'VIPERTV_BUILD_ID':run_id,'VIPERTV_MODE':str(r['mode'] or 'build'),'VIPERTV_ARGS_JSON':str(r['arguments_json'] or '[]'),'PYTHONPATH':'/app'})
+    started=time.time();env=os.environ.copy();root=str(Path(__file__).resolve().parent.parent);port=str(os.environ.get('VIPERTV_PORT','8409'));env.update({'VIPERTV_API_BASE':f'http://127.0.0.1:{port}','VIPERTV_API_TOKEN':_setting('scripted_api_token'),'VIPERTV_BUILD_ID':run_id,'VIPERTV_MODE':str(r['mode'] or 'build'),'VIPERTV_ARGS_JSON':str(r['arguments_json'] or '[]'),'PYTHONPATH':root})
     try:
-        proc=subprocess.run(_script_argv(r),capture_output=True,text=True,timeout=max(5,min(3600,int(r['timeout_seconds'] or 120))),env=env,cwd=str(_script_root()))
+        proc=subprocess.run(_script_argv(r),capture_output=True,text=True,timeout=max(5,min(3600,int(r['timeout_seconds'] or 120))),env=env,cwd=str(_script_root()),creationflags=(int(getattr(subprocess,'CREATE_NO_WINDOW',0)) if os.name=='nt' else 0))
         log=((proc.stdout or '')+('\n--- stderr ---\n'+proc.stderr if proc.stderr else ''))[-20000:];rc=int(proc.returncode);err=''
     except Exception as exc:log=str(exc);rc=-1;err=str(exc)
     with _db() as conn:conn.execute('UPDATE scheduler_scripts SET last_run=?,last_rc=?,last_log=?,updated_at=? WHERE id=?',(_now(),rc,log,_now(),script_id));conn.commit()
@@ -474,8 +509,8 @@ def _scripts_page(msg:str='')->str:
     root=_script_root()
     with _db() as conn:rows=conn.execute('SELECT * FROM scheduler_scripts ORDER BY name').fetchall()
     trs=''.join(f"<tr><td><b>{_e(r['name'])}</b><div class='small muted'><code>{_e(r['script_path'])}</code></div></td><td>{_e(r['mode'])}</td><td>{int(r['timeout_seconds'])}s</td><td>{_e(r['last_run'] or 'Never')}</td><td>{_e(r['last_rc'] if r['last_rc'] is not None else '—')}</td><td><form class='inline' method='post' action='/scheduling/script-runner/{r['id']}/run'><button>Run</button></form> <form class='inline' method='post' action='/scheduling/script-runner/{r['id']}/delete'><button class='danger'>Delete</button></form></td></tr>" for r in rows) or "<tr><td colspan='6'>No executable scheduler scripts configured.</td></tr>"
-    body=(f"<div class='msg'>{_e(msg)}</div>" if msg else '')+_heading('Script Runner','Execute trusted local Python/shell scheduler programs inside the ViperTV container. Scripts receive build ID, mode, arguments and REST API credentials as environment variables.',"<a class='button secondary' href='/scheduling/scripted'>Scripted Schedules</a>")+f"""
-<div class='grid'><div class='card'><h2>Upload Script</h2><form method='post' enctype='multipart/form-data' action='/scheduling/script-runner/upload'><input type='file' name='upload' required><button>Upload to {_e(str(root))}</button></form></div><div class='card'><h2>Add Runner</h2><form method='post' action='/scheduling/script-runner/add'><label>Name</label><input name='name' required><label>Script path/name</label><input name='script_path' required placeholder='build_schedule.py'><div class='grid'><div><label>Interpreter</label><select name='interpreter'><option value='auto'>Auto</option><option value='python'>Python 3</option><option value='shell'>Shell</option><option value='exec'>Executable</option></select></div><div><label>Mode</label><input name='mode' value='build'></div></div><label>Arguments JSON</label><input name='arguments_json' value='[]'><label>Timeout seconds</label><input type='number' name='timeout_seconds' value='120'><button>Add Runner</button></form></div></div>
+    body=(f"<div class='msg'>{_e(msg)}</div>" if msg else '')+_heading('Script Runner','Execute trusted local Python, PowerShell, batch, or executable scheduler programs on the ViperTV Windows host. Scripts receive build ID, mode, arguments and REST API credentials as environment variables.',"<a class='button secondary' href='/scheduling/scripted'>Scripted Schedules</a>")+f"""
+<div class='grid'><div class='card'><h2>Upload Script</h2><form method='post' enctype='multipart/form-data' action='/scheduling/script-runner/upload'><input type='file' name='upload' required><button>Upload to {_e(str(root))}</button></form></div><div class='card'><h2>Add Runner</h2><form method='post' action='/scheduling/script-runner/add'><label>Name</label><input name='name' required><label>Script path/name</label><input name='script_path' required placeholder='build_schedule.py'><div class='grid'><div><label>Interpreter</label><select name='interpreter'><option value='auto'>Auto</option><option value='python'>Python</option><option value='powershell'>PowerShell</option><option value='batch'>Batch / CMD</option><option value='shell'>Shell / Bash</option><option value='exec'>Executable</option></select></div><div><label>Mode</label><input name='mode' value='build'></div></div><label>Arguments JSON</label><input name='arguments_json' value='[]'><label>Timeout seconds</label><input type='number' name='timeout_seconds' value='120'><button>Add Runner</button></form></div></div>
 <div class='card'><div class='table-wrap'><table><thead><tr><th>Runner</th><th>Mode</th><th>Timeout</th><th>Last run</th><th>RC</th><th></th></tr></thead><tbody>{trs}</tbody></table></div></div>"""
     return _page('Script Runner',body)
 
@@ -517,7 +552,7 @@ def _graphics_test_page(msg:str='')->str:
 
 
 def _render_graphics_test(channel_id:int,gids:list[int],seconds:int,job:str)->None:
-    outdir=Path('/data/graphics-tests');outdir.mkdir(parents=True,exist_ok=True);outfile=outdir/f'{job}.mp4'
+    outdir=_standalone_data_subdir('graphics-tests');outfile=outdir/f'{job}.mp4'
     try:
         channel,items=G['channel_media'](channel_id)
         item=next((dict(x) for x in items if str(x.get('source_type'))!='gap'),None)

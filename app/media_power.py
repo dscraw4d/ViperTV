@@ -881,10 +881,9 @@ def local_command(channel,item,offset,profile_override=None):
         item['_actual_stream_profile']=profile
         res=str(channel['resolution'] or '1920x1080'); scale=res.replace('x',':')
         preferred=G['hardware_preferred_vaapi_device']() or None
-        prereq=G['hwaccel'].profile_prerequisites(profile,preferred) if profile in {'vaapi','qsv','nvenc'} else {}
+        prereq=G['hwaccel'].profile_prerequisites(profile,preferred) if profile in {'vaapi','qsv','nvenc','amf'} else {}
         prefix=['ffmpeg','-hide_banner','-loglevel','error']
-        if profile=='vaapi':prefix += ['-vaapi_device',str(prereq.get('device') or preferred or '/dev/dri/renderD128')]
-        elif profile=='qsv':prefix += ['-qsv_device',str(prereq.get('device') or preferred or '/dev/dri/renderD128')]
+        prefix += G['hwaccel'].ffmpeg_device_args(profile,preferred)
         if kind=='image':
             path=str(item.get('path') or '');dur=max(1.0,float(item.get('duration') or 10)-max(0.0,float(offset or 0)))
             prefix += ['-re','-stream_loop','-1','-framerate','30','-i',path,'-f','lavfi','-i','anullsrc=r=48000:cl=stereo','-t',f'{dur:.3f}']
@@ -892,6 +891,7 @@ def local_command(channel,item,offset,profile_override=None):
             if profile=='vaapi':filters += ',format=nv12,hwupload'
             elif profile=='qsv':filters += ',format=nv12'
             elif profile=='nvenc':filters += ',format=yuv420p'
+            elif profile=='amf':filters += ',format=nv12'
             prefix += ['-vf',filters,'-map','0:v:0','-map','1:a:0']
         else:
             path=str(item.get('path') or '')
@@ -899,9 +899,11 @@ def local_command(channel,item,offset,profile_override=None):
             if profile=='vaapi':prefix += ['-vf','format=nv12,hwupload']
             elif profile=='qsv':prefix += ['-vf','format=nv12']
             elif profile=='nvenc':prefix += ['-vf','format=yuv420p']
+            elif profile=='amf':prefix += ['-vf','format=nv12']
         if profile=='vaapi':prefix += ['-c:v','h264_vaapi','-b:v',str(channel['video_bitrate'] or G['VIDEO_BITRATE'])]
         elif profile=='qsv':prefix += ['-c:v','h264_qsv','-b:v',str(channel['video_bitrate'] or G['VIDEO_BITRATE'])]
         elif profile=='nvenc':prefix += ['-c:v','h264_nvenc','-preset','p4','-tune','ll','-b:v',str(channel['video_bitrate'] or G['VIDEO_BITRATE'])]
+        elif profile=='amf':prefix += ['-c:v','h264_amf','-quality','speed','-b:v',str(channel['video_bitrate'] or G['VIDEO_BITRATE'])]
         else:prefix += ['-c:v','libx264','-preset',G['TRANSCODE_PRESET'],'-pix_fmt','yuv420p']
         prefix += ['-c:a','aac','-b:a',G['AUDIO_BITRATE']]
         if kind!='image':prefix += ['-shortest']

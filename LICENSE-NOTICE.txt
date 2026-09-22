@@ -4,4 +4,5 @@ This package does not impose a new software license on the ViperTV source code.
 The project owner should add the desired license terms before publishing the project
 as an open-source package or granting downstream redistribution rights.
 
-Third-party components installed by Docker/pip/apt remain subject to their own licenses.
+Third-party runtime components downloaded or installed by the Windows standalone
+builder remain subject to their own upstream licenses and notices.

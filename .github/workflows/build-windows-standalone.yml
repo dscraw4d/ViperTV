@@ -1,0 +1,42 @@
+name: Build Windows Standalone
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v1.5.0-windows*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Build portable ZIP and Setup EXE
+        shell: powershell
+        run: .\windows\Build-Windows-Standalone.ps1 -Version 1.5.0 -OutDir "$pwd\dist-windows"
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ViperTV-v1.5.0-Windows-x64
+          path: |
+            dist-windows/ViperTV-v1.5.0-Windows-Portable-x64.zip
+            dist-windows/ViperTV-v1.5.0-Windows-Portable-x64.zip.sha256
+            dist-windows/ViperTV-v1.5.0-Windows-x64-Setup.exe
+            dist-windows/ViperTV-v1.5.0-Windows-x64-Setup.exe.sha256
+          if-no-files-found: error
