@@ -22,6 +22,14 @@ New-Item -ItemType Directory -Force -Path $Stage,$Runtime,$Tmp | Out-Null
 # source/distribution assets, not needed by the standalone runtime.
 Copy-Item (Join-Path $Root "app") $Stage -Recurse
 Copy-Item (Join-Path $Root "windows") $Stage -Recurse
+
+# Always create the installer-mode marker inside the staged windows folder.
+# Older GitHub packages did not include windows\installed.mode, which caused
+# Inno Setup to fail even though the portable ZIP had already built correctly.
+# Generate it here so the installer build never depends on that source file
+# existing in the repository.
+$InstalledMarker = Join-Path $Stage "windows\installed.mode"
+Set-Content -Path $InstalledMarker -Value "installed" -Encoding ascii
 Copy-Item (Join-Path $Root "ViperTV-Start.cmd") $Stage
 Copy-Item (Join-Path $Root "ViperTV-Stop.cmd") $Stage
 Copy-Item (Join-Path $Root "ViperTV-Restart.cmd") $Stage
